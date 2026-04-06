@@ -52,6 +52,8 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
     now = time.time()
     with recent_events_lock:
         for event in events:
+            if event.get("subdued", False):
+                continue
             speed_kmh = float(event.get("speed_kmh", 0.0))
             if speed_kmh <= 0.1:
                 continue

@@ -11,8 +11,8 @@
     <header class="topbar panel">
       <div>
         <p class="eyebrow">Soapbox Speed Camera</p>
-        <h1>調整コンソール</h1>
-        <p class="lead">スナップショット編集、キャリブレーション、検知ログ、画像処理チューニングを1画面で扱えます。</p>
+        <h1>設定コンソール</h1>
+        <p class="lead">スナップショット編集、ライブ確認、検知チューニングをひとつの画面で調整できます。</p>
       </div>
       <div class="topbar-actions">
         <button id="reload-config" type="button" class="ghost">再読込</button>
@@ -31,7 +31,7 @@
               <h2>スナップショット編集</h2>
             </div>
             <div class="mini-actions">
-              <button id="clear-current-points" type="button" class="ghost">現在の点をクリア</button>
+              <button id="clear-current-points" type="button" class="ghost">現在モードだけ消す</button>
               <button id="clear-all-overlays" type="button" class="ghost">全消去</button>
             </div>
           </div>
@@ -39,8 +39,8 @@
           <div class="canvas-shell">
             <canvas id="snapshot-canvas" width="1280" height="720"></canvas>
             <div class="canvas-overlay">
-              <p id="mode-badge" class="mode-badge">モード未選択</p>
-              <p class="canvas-help">スナップショット取得後にモードを選び、画像上をクリックします。</p>
+              <p id="mode-badge" class="mode-badge">モード選択待ち</p>
+              <p class="canvas-help">スナップショット取得後にモードを選び、画像上をクリックして設定します。</p>
             </div>
           </div>
 
@@ -51,7 +51,7 @@
               <button id="mode-scale" type="button" class="mode-button">Scale</button>
               <button id="mode-line-a" type="button" class="mode-button">Line A</button>
               <button id="mode-line-b" type="button" class="mode-button">Line B</button>
-              <button id="mode-pan" type="button" class="mode-button ghost">閲覧</button>
+              <button id="mode-pan" type="button" class="mode-button ghost">解除</button>
             </div>
             <div class="point-summary">
               <div>
@@ -95,15 +95,17 @@
               </label>
               <textarea id="roi-polygon" rows="4"></textarea>
             </details>
+
             <details class="details-box" open>
               <summary>Perspective</summary>
-              <p class="hint">順序: 左上 → 右上 → 右下 → 左下</p>
+              <p class="hint">4点は 左上 → 右上 → 右下 → 左下 の順です。</p>
               <textarea id="perspective-points" rows="3"></textarea>
               <button id="save-perspective" type="button">Perspectiveを保存</button>
             </details>
+
             <details class="details-box" open>
               <summary>Scale</summary>
-              <p class="hint">ppm 未設定時は `px/s` 表示になります。</p>
+              <p class="hint">ppm 未設定の間は `px/s` 表示になります。</p>
               <div class="form-grid two">
                 <label>既知距離 m
                   <input id="known-distance" type="number" min="0.01" step="0.01">
@@ -115,10 +117,11 @@
               <button id="save-scale" type="button">スケールを計算</button>
               <p id="ppm-view" class="ppm"></p>
             </details>
+
             <details class="details-box" open>
               <summary>Speed Mode</summary>
               <div class="form-grid two">
-                <label>速度モード
+                <label>測定モード
                   <select id="measurement-mode">
                     <option value="tracking">Tracking</option>
                     <option value="line_crossing">Line Crossing</option>
@@ -127,11 +130,21 @@
                 <label>表示保持 秒
                   <input id="overlay-hold-seconds" type="number" min="1" max="30" step="1">
                 </label>
+                <label>再検知時の表示
+                  <select id="repeat-behavior">
+                    <option value="normal">通常</option>
+                    <option value="ignore">無視</option>
+                    <option value="subdued">小さく表示</option>
+                  </select>
+                </label>
+                <label>再検知クールダウン 秒
+                  <input id="repeat-cooldown-seconds" type="number" min="0" max="30" step="0.5">
+                </label>
                 <label>Line間距離 m
                   <input id="line-distance-m" type="number" min="0.01" step="0.01">
                 </label>
               </div>
-              <p class="hint">Line Crossing は Line A と Line B の両方を通過したときだけ速度を確定します。</p>
+              <p class="hint">Line Crossing は Line A と Line B の間を通過した時間差から速度を確定します。</p>
               <div class="form-grid two">
                 <label>Line A JSON
                   <input id="line-a-points" type="text" placeholder="[[100,100],[300,100]]">
@@ -153,14 +166,12 @@
             <span class="pill">debug ready</span>
           </div>
           <div class="toggle-row">
-            <label class="inline compact">
-              <input id="debug-mode" type="checkbox">
-              デバッグモード
-            </label>
-            <label class="inline compact">
-              <input id="exclude-blue-floor" type="checkbox">
-              青床を除外
-            </label>
+            <label class="inline compact"><input id="undistort-enabled" type="checkbox">Undistort</label>
+            <label class="inline compact"><input id="perspective-enabled" type="checkbox">Perspective</label>
+            <label class="inline compact"><input id="blur-enabled" type="checkbox">Blur</label>
+            <label class="inline compact"><input id="morphology-enabled" type="checkbox">Morphology</label>
+            <label class="inline compact"><input id="debug-mode" type="checkbox">デバッグモード</label>
+            <label class="inline compact"><input id="exclude-blue-floor" type="checkbox">青床を除外</label>
           </div>
           <div class="form-grid four">
             <label>最小輪郭
@@ -228,24 +239,12 @@
               </div>
             </div>
             <div class="form-grid three">
-              <label>H low
-                <input id="blue-h-low" type="number" min="0" max="255" step="1">
-              </label>
-              <label>S low
-                <input id="blue-s-low" type="number" min="0" max="255" step="1">
-              </label>
-              <label>V low
-                <input id="blue-v-low" type="number" min="0" max="255" step="1">
-              </label>
-              <label>H high
-                <input id="blue-h-high" type="number" min="0" max="255" step="1">
-              </label>
-              <label>S high
-                <input id="blue-s-high" type="number" min="0" max="255" step="1">
-              </label>
-              <label>V high
-                <input id="blue-v-high" type="number" min="0" max="255" step="1">
-              </label>
+              <label>H low<input id="blue-h-low" type="number" min="0" max="255" step="1"></label>
+              <label>S low<input id="blue-s-low" type="number" min="0" max="255" step="1"></label>
+              <label>V low<input id="blue-v-low" type="number" min="0" max="255" step="1"></label>
+              <label>H high<input id="blue-h-high" type="number" min="0" max="255" step="1"></label>
+              <label>S high<input id="blue-s-high" type="number" min="0" max="255" step="1"></label>
+              <label>V high<input id="blue-v-high" type="number" min="0" max="255" step="1"></label>
             </div>
           </details>
         </article>
@@ -269,7 +268,7 @@
               <p class="panel-label">Detections</p>
               <h2>最新ログ</h2>
             </div>
-            <span class="pill">最大20件</span>
+            <span class="pill">最新20件</span>
           </div>
           <div class="event-log-shell">
             <table class="event-log-table">
@@ -293,8 +292,11 @@
         <article class="panel compact-panel">
           <p class="panel-label">Camera</p>
           <h2>カメラ</h2>
+          <div class="toggle-row">
+            <label class="inline compact"><input id="rtsp-enabled" type="checkbox">RTSP</label>
+          </div>
           <div class="form-grid two">
-            <label>種別
+            <label>種類
               <select id="camera-type">
                 <option value="usb">USB</option>
                 <option value="csi">CSI</option>
@@ -315,6 +317,9 @@
             <label>ダウンスケール
               <input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1">
             </label>
+            <label class="span-two">RTSP URL
+              <input id="rtsp-url" type="text" placeholder="rtsp://user:pass@camera/stream">
+            </label>
           </div>
         </article>
       </aside>
@@ -324,49 +329,53 @@
       <div class="panel-header">
         <div>
           <p class="panel-label">Guide</p>
-          <h2>検知チューニングの見方</h2>
+          <h2>検知チューニングの説明</h2>
         </div>
       </div>
       <div class="help-grid">
         <article class="help-card">
+          <h3>RTSP / USB切替</h3>
+          <p>RTSP をオンにすると USB / CSI の代わりに RTSP URL を読みます。別端末の配信を使ったデバッグに向いています。</p>
+        </article>
+        <article class="help-card">
           <h3>最小輪郭 / 最大輪郭</h3>
-          <p>検知対象の大きさの下限と上限です。小さすぎるノイズや大きすぎる誤検知を除外します。</p>
+          <p>小さすぎるノイズや大きすぎる誤検知を除外します。ミニカーでは最小輪郭を下げると拾いやすくなります。</p>
         </article>
         <article class="help-card">
           <h3>二値化</h3>
-          <p>背景差分後の白黒判定の強さです。下げると拾いやすく、上げると厳しくなります。</p>
+          <p>背景差分後の白黒化の強さです。下げると拾いやすく、上げるとノイズを抑えやすくなります。</p>
         </article>
         <article class="help-card">
           <h3>背景履歴 / 背景しきい値</h3>
-          <p>背景モデルの慣れ方です。履歴を大きくするとゆっくり適応し、しきい値を下げると小さな変化も拾います。</p>
+          <p>背景モデルの安定度を決めます。履歴を大きくすると安定しやすく、しきい値を上げると変化に鈍くなります。</p>
         </article>
         <article class="help-card">
-          <h3>ブラー / モルフォ核</h3>
-          <p>ノイズ除去の強さです。ブラーは平滑化、モルフォ核は穴埋めや小粒ノイズ除去の効き方に関わります。</p>
+          <h3>Blur / Morphology</h3>
+          <p>ブラーは細かなノイズをなだらかにし、Morphology は小さなゴミ除去と穴埋めをします。重いときはこの2つを切ると効きやすいです。</p>
         </article>
         <article class="help-card">
-          <h3>Open回数 / Dilate回数</h3>
-          <p>Open は小さなゴミを減らし、Dilate は検知領域を少し膨らませます。やりすぎると形が崩れます。</p>
+          <h3>Open / Dilate</h3>
+          <p>Open は小さなゴミを削り、Dilate は検知領域を少し太らせます。やりすぎると形が膨らみます。</p>
         </article>
         <article class="help-card">
           <h3>追跡距離 / 見失い許容</h3>
-          <p>前フレームの物体と同じものとみなす距離、および何フレーム見失っても追跡を維持するかです。</p>
+          <p>前フレームとの対応づけ条件です。速い物体は距離を少し広げると追跡しやすくなります。</p>
         </article>
         <article class="help-card">
-          <h3>デバッグモード</h3>
-          <p>小さな物体を拾いやすくする調整です。ミニカー確認時に向いていますが、誤検知も増えやすくなります。</p>
+          <h3>再検知クールダウン</h3>
+          <p>一度検知したあと、同じ track を何秒抑えるかの設定です。無視するか、小さく表示するかを選べます。</p>
         </article>
         <article class="help-card">
           <h3>青床除外 HSV</h3>
-          <p>色ピッカーで代表色を選ぶと、内部で HSV に変換して Low / High を自動計算できます。必要なら下の数値を手で微調整してください。</p>
+          <p>カラーピッカーで床色を選び、その周辺色を HSV で除外します。数値欄は微調整用です。</p>
         </article>
         <article class="help-card">
-          <h3>Line Crossing モード</h3>
-          <p>Line A と Line B を両方またいだときだけ速度を確定します。`distance_m` はその2本の実距離です。</p>
+          <h3>Line Crossing</h3>
+          <p>Line A と Line B を通過した時間差で速度を出します。`distance_m` には2本の実距離を入れてください。</p>
         </article>
         <article class="help-card">
           <h3>ppm / px/s</h3>
-          <p>スケール未設定の間は `px/s` 表示になります。実速度を出すには Scale で2点と実距離を設定してください。</p>
+          <p>Scale 未設定の間は `px/s` 表示です。実速度にするには Scale で2点と既知距離を設定します。</p>
         </article>
       </div>
     </section>

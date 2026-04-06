@@ -30,6 +30,8 @@
   "measurement": {
     "mode": "tracking",
     "overlay_hold_seconds": 5.0,
+    "repeat_behavior": "normal",
+    "repeat_cooldown_seconds": 0.0,
     "line_crossing": {
       "line_a": [],
       "line_b": [],

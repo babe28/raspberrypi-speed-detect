@@ -167,6 +167,8 @@ function fillForm(config) {
 
   setValue("camera-type", config.camera.type);
   setValue("camera-device", config.camera.device);
+  document.getElementById("rtsp-enabled").checked = Boolean(config.camera.rtsp_enabled);
+  setValue("rtsp-url", config.camera.rtsp_url || "");
   setValue("camera-width", config.camera.resolution[0]);
   setValue("camera-height", config.camera.resolution[1]);
   setValue("camera-fps", config.camera.fps);
@@ -187,10 +189,16 @@ function fillForm(config) {
   setValue("known-distance", config.scale.known_distance_m);
   setValue("measurement-mode", measurement.mode);
   setValue("overlay-hold-seconds", measurement.overlay_hold_seconds);
+  setValue("repeat-behavior", measurement.repeat_behavior || "normal");
+  setValue("repeat-cooldown-seconds", measurement.repeat_cooldown_seconds ?? 0);
   setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
+  document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
+  document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
+  document.getElementById("blur-enabled").checked = processing.blur_enabled;
+  document.getElementById("morphology-enabled").checked = processing.morphology_enabled;
 
   const low = processing.blue_hsv_low || [90, 50, 40];
   const high = processing.blue_hsv_high || [135, 255, 255];
@@ -418,6 +426,10 @@ function buildProcessingPayload() {
     track_max_missing_frames: Number(getValue("track-max-missing-frames")),
     debug_mode: getChecked("debug-mode"),
     exclude_blue_floor: getChecked("exclude-blue-floor"),
+    undistort_enabled: getChecked("undistort-enabled"),
+    perspective_enabled: getChecked("perspective-enabled"),
+    blur_enabled: getChecked("blur-enabled"),
+    morphology_enabled: getChecked("morphology-enabled"),
     blue_hsv_low: [
       Number(getValue("blue-h-low")),
       Number(getValue("blue-s-low")),
@@ -435,6 +447,8 @@ function buildMeasurementPayload() {
   return {
     mode: getValue("measurement-mode"),
     overlay_hold_seconds: Number(getValue("overlay-hold-seconds")),
+    repeat_behavior: getValue("repeat-behavior"),
+    repeat_cooldown_seconds: Number(getValue("repeat-cooldown-seconds")),
     line_crossing: {
       line_a: readJsonInput("line-a-points", []),
       line_b: readJsonInput("line-b-points", []),
@@ -448,6 +462,8 @@ async function saveConfig() {
     camera: {
       type: getValue("camera-type"),
       device: Number(getValue("camera-device")),
+      rtsp_enabled: getChecked("rtsp-enabled"),
+      rtsp_url: getValue("rtsp-url"),
       resolution: [Number(getValue("camera-width")), Number(getValue("camera-height"))],
       fps: Number(getValue("camera-fps")),
     },

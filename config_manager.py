@@ -33,6 +33,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "measurement": {
         "mode": "tracking",
         "overlay_hold_seconds": 5.0,
+        "repeat_behavior": "normal",
+        "repeat_cooldown_seconds": 0.0,
         "line_crossing": {
             "line_a": [],
             "line_b": [],
@@ -146,6 +148,14 @@ class ConfigManager:
         measurement["mode"] = str(measurement.get("mode", "tracking")).lower()
         measurement["overlay_hold_seconds"] = float(
             measurement.get("overlay_hold_seconds", 5.0)
+        )
+        measurement["repeat_behavior"] = str(
+            measurement.get("repeat_behavior", "normal")
+        ).lower()
+        if measurement["repeat_behavior"] not in {"normal", "ignore", "subdued"}:
+            measurement["repeat_behavior"] = "normal"
+        measurement["repeat_cooldown_seconds"] = max(
+            0.0, float(measurement.get("repeat_cooldown_seconds", 0.0))
         )
         line_crossing = measurement.get("line_crossing", {})
         measurement["line_crossing"] = {

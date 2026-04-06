@@ -21,6 +21,7 @@ class Track:
     speed_px_s: float = 0.0
     history: list[tuple[float, float, float]] = field(default_factory=list)
     crossed_lines: dict[str, float] = field(default_factory=dict)
+    last_measurement_at: float = 0.0
 
 
 @dataclass
@@ -30,6 +31,7 @@ class OverlayMeasurement:
     expires_at: float
     track_id: int
     color: tuple[int, int, int]
+    subdued: bool = False
 
 
 class SpeedEstimator:
@@ -41,6 +43,8 @@ class SpeedEstimator:
         self.max_speed_kmh = float(processing["max_speed_kmh"])
         self.measurement_mode = str(measurement["mode"])
         self.overlay_hold_seconds = float(measurement["overlay_hold_seconds"])
+        self.repeat_behavior = str(measurement.get("repeat_behavior", "normal"))
+        self.repeat_cooldown_seconds = float(measurement.get("repeat_cooldown_seconds", 0.0))
         self.line_crossing = measurement["line_crossing"]
         self.line_a = self._as_points(self.line_crossing["line_a"])
         self.line_b = self._as_points(self.line_crossing["line_b"])
@@ -209,7 +213,8 @@ class SpeedEstimator:
                     )
                     if measurement_event is not None:
                         events.append(measurement_event)
-                        self._log_event(measurement_event, now)
+                        if not measurement_event.get("subdued", False):
+                            self._log_event(measurement_event, now)
 
             matched_track_ids.add(track.track_id)
             if self.measurement_mode == "tracking":
@@ -222,8 +227,12 @@ class SpeedEstimator:
                     "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
                     "color": self._track_color(track.track_id),
                 }
+                event = self._apply_repeat_behavior(track, event, now)
+                if event is None:
+                    continue
                 events.append(event)
-                self._log_event(event, now)
+                if not event.get("subdued", False):
+                    self._log_event(event, now)
 
         for track_id, track in list(self.tracks.items()):
             if track_id not in matched_track_ids:
@@ -274,6 +283,10 @@ class SpeedEstimator:
             "speed_label": f"{speed_kmh:.1f} km/h",
             "color": self._track_color(track.track_id),
         }
+        event = self._apply_repeat_behavior(track, event, now)
+        track.crossed_lines.clear()
+        if event is None:
+            return None
         self.active_measurements.append(
             OverlayMeasurement(
                 label=event["speed_label"],
@@ -281,9 +294,9 @@ class SpeedEstimator:
                 expires_at=now + self.overlay_hold_seconds,
                 track_id=track.track_id,
                 color=event["color"],
+                subdued=bool(event.get("subdued", False)),
             )
         )
-        track.crossed_lines.clear()
         track.speed_kmh = speed_kmh
         track.speed_px_s = 0.0
         return event
@@ -307,6 +320,31 @@ class SpeedEstimator:
         if kmh > self.max_speed_kmh:
             return track.speed_kmh, track.speed_px_s
         return kmh, speed_px_s
+
+    def _apply_repeat_behavior(
+        self, track: Track, event: dict[str, Any], now: float
+    ) -> dict[str, Any] | None:
+        if self.repeat_behavior == "normal" or self.repeat_cooldown_seconds <= 0:
+            event["subdued"] = False
+            track.last_measurement_at = now
+            return event
+
+        if track.last_measurement_at <= 0:
+            event["subdued"] = False
+            track.last_measurement_at = now
+            return event
+
+        elapsed = now - track.last_measurement_at
+        if elapsed >= self.repeat_cooldown_seconds:
+            event["subdued"] = False
+            track.last_measurement_at = now
+            return event
+
+        if self.repeat_behavior == "ignore":
+            return None
+
+        event["subdued"] = True
+        return event
 
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:
         nearest: Track | None = None
@@ -339,7 +377,10 @@ class SpeedEstimator:
             if self.measurement_mode == "tracking" or self.debug_mode:
                 x, y, w, h = event["bbox"]
                 color = event.get("color", (0, 220, 0))
-                cv2.rectangle(annotated, (x, y), (x + w, y + h), color, 2)
+                subdued = bool(event.get("subdued", False))
+                box_color = self._muted_color(color) if subdued else color
+                box_thickness = 1 if subdued else 2
+                cv2.rectangle(annotated, (x, y), (x + w, y + h), box_color, box_thickness)
                 self._draw_label_badges(
                     annotated,
                     x,
@@ -347,6 +388,7 @@ class SpeedEstimator:
                     f"ID {event['id']}",
                     event["speed_label"],
                     color,
+                    subdued=subdued,
                 )
 
         self._draw_measurement_lines(annotated)
@@ -436,6 +478,7 @@ class SpeedEstimator:
                 f"ID {measurement.track_id}",
                 measurement.label,
                 measurement.color,
+                subdued=measurement.subdued,
             )
 
     def _prune_measurements(self) -> None:
@@ -484,6 +527,9 @@ class SpeedEstimator:
         ]
         return palette[(track_id - 1) % len(palette)]
 
+    def _muted_color(self, color: tuple[int, int, int]) -> tuple[int, int, int]:
+        return tuple(int((component * 0.45) + 60) for component in color)
+
     def _draw_label_badges(
         self,
         frame: np.ndarray,
@@ -492,13 +538,14 @@ class SpeedEstimator:
         id_text: str,
         speed_text: str,
         color: tuple[int, int, int],
+        subdued: bool = False,
     ) -> None:
         font = cv2.FONT_HERSHEY_SIMPLEX
-        font_scale = 0.55
+        font_scale = 0.42 if subdued else 0.55
         thickness = 1
-        padding_x = 8
-        padding_y = 6
-        gap = 6
+        padding_x = 6 if subdued else 8
+        padding_y = 4 if subdued else 6
+        gap = 4 if subdued else 6
         (id_w, id_h), _ = cv2.getTextSize(id_text, font, font_scale, thickness)
         (speed_w, speed_h), _ = cv2.getTextSize(speed_text, font, font_scale, thickness)
         box_h = max(id_h, speed_h) + padding_y * 2
@@ -507,8 +554,10 @@ class SpeedEstimator:
         top = max(2, y - box_h)
         speed_x = x + id_box_w + gap
 
-        cv2.rectangle(frame, (x, top), (x + id_box_w, top + box_h), color, -1)
-        cv2.rectangle(frame, (speed_x, top), (speed_x + speed_box_w, top + box_h), (18, 18, 18), -1)
+        id_bg = self._muted_color(color) if subdued else color
+        speed_bg = (48, 48, 48) if subdued else (18, 18, 18)
+        cv2.rectangle(frame, (x, top), (x + id_box_w, top + box_h), id_bg, -1)
+        cv2.rectangle(frame, (speed_x, top), (speed_x + speed_box_w, top + box_h), speed_bg, -1)
         cv2.putText(
             frame,
             id_text,
