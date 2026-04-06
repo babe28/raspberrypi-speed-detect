@@ -205,6 +205,18 @@
           </div>
           <details class="details-box">
             <summary>青床除外 HSV</summary>
+            <div class="picker-grid">
+              <label>代表色
+                <input id="blue-color-picker" type="color" value="#2d7ff9">
+              </label>
+              <label>色幅
+                <input id="blue-tolerance" type="range" min="2" max="60" step="1" value="18">
+              </label>
+              <div class="picker-actions">
+                <button id="apply-blue-picker" type="button" class="ghost">色からHSVに反映</button>
+                <p id="blue-picker-label" class="hint"></p>
+              </div>
+            </div>
             <div class="color-preview-wrap">
               <div>
                 <p class="hint">Low</p>
@@ -346,7 +358,7 @@
         </article>
         <article class="help-card">
           <h3>青床除外 HSV</h3>
-          <p>指定した青系の色範囲をマスクして、床を動体候補から外します。Low と High はその範囲の下限と上限です。</p>
+          <p>色ピッカーで代表色を選ぶと、内部で HSV に変換して Low / High を自動計算できます。必要なら下の数値を手で微調整してください。</p>
         </article>
         <article class="help-card">
           <h3>Line Crossing モード</h3>

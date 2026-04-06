@@ -356,6 +356,19 @@ button.ghost {
   margin-bottom: 12px;
 }
 
+.picker-grid {
+  display: grid;
+  grid-template-columns: 180px minmax(180px, 1fr) 1fr;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.picker-actions {
+  display: grid;
+  gap: 8px;
+}
+
 .color-preview {
   min-height: 56px;
   border-radius: 14px;
@@ -421,6 +434,7 @@ button.ghost {
   .form-grid.three,
   .form-grid.four,
   .calibration-grid,
+  .picker-grid,
   .color-preview-wrap,
   .help-grid,
   .point-summary {

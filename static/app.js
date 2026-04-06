@@ -11,6 +11,7 @@ const lineBCountEl = document.getElementById("line-b-count");
 const eventLogBodyEl = document.getElementById("event-log-body");
 const blueLowPreviewEl = document.getElementById("blue-low-preview");
 const blueHighPreviewEl = document.getElementById("blue-high-preview");
+const bluePickerLabelEl = document.getElementById("blue-picker-label");
 
 const state = {
   config: null,
@@ -96,6 +97,52 @@ function updateBluePreviews() {
   blueHighPreviewEl.textContent = highColor;
 }
 
+function rgbHexToHsv255(hex) {
+  const clean = hex.replace("#", "");
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const delta = max - min;
+  let h = 0;
+
+  if (delta !== 0) {
+    if (max === r) {
+      h = ((g - b) / delta) % 6;
+    } else if (max === g) {
+      h = (b - r) / delta + 2;
+    } else {
+      h = (r - g) / delta + 4;
+    }
+  }
+
+  h = Math.round((((h * 60) + 360) % 360) / 360 * 255);
+  const s = max === 0 ? 0 : Math.round((delta / max) * 255);
+  const v = Math.round(max * 255);
+  return [h, s, v];
+}
+
+function clamp255(value) {
+  return Math.max(0, Math.min(255, Math.round(value)));
+}
+
+function applyBluePickerToInputs() {
+  const color = getValue("blue-color-picker");
+  const tolerance = Number(getValue("blue-tolerance"));
+  const [h, s, v] = rgbHexToHsv255(color);
+
+  setValue("blue-h-low", clamp255(h - tolerance));
+  setValue("blue-s-low", clamp255(s - tolerance * 1.8));
+  setValue("blue-v-low", clamp255(v - tolerance * 1.6));
+  setValue("blue-h-high", clamp255(h + tolerance));
+  setValue("blue-s-high", clamp255(s + tolerance * 1.2));
+  setValue("blue-v-high", clamp255(v + tolerance * 1.2));
+  bluePickerLabelEl.textContent = `HSV center: ${h}, ${s}, ${v} / tolerance: ${tolerance}`;
+  updateBluePreviews();
+}
+
 function syncCounts() {
   roiCountEl.textContent = `${state.roiPoints.length}点`;
   perspectiveCountEl.textContent = `${state.perspectivePoints.length} / 4点`;
@@ -153,6 +200,7 @@ function fillForm(config) {
   setValue("blue-h-high", high[0]);
   setValue("blue-s-high", high[1]);
   setValue("blue-v-high", high[2]);
+  bluePickerLabelEl.textContent = `Current HSV range loaded`;
 
   state.roiPoints = (config.roi.polygon || []).map((point) => [...point]);
   state.perspectivePoints = (config.perspective.src_points || []).map((point) => [...point]);
@@ -538,6 +586,10 @@ document.getElementById("line-b-points").addEventListener("change", () => {
 ].forEach((id) => {
   document.getElementById(id).addEventListener("input", updateBluePreviews);
 });
+
+document.getElementById("apply-blue-picker").addEventListener("click", applyBluePickerToInputs);
+document.getElementById("blue-color-picker").addEventListener("input", applyBluePickerToInputs);
+document.getElementById("blue-tolerance").addEventListener("input", applyBluePickerToInputs);
 
 setMode("pan");
 loadConfig().catch((error) => setStatus(error.message, true));

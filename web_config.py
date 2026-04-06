@@ -206,6 +206,7 @@ def calibrate_scale() -> Response:
             }
         }
     )
+    restart_processor()
     return jsonify(updated)
 
 
@@ -217,10 +218,18 @@ def save_perspective() -> Response:
         return jsonify({"error": "Exactly four points are required."}), 400
 
     src = np.array(points, dtype=np.float32)
-    width = float(max(np.linalg.norm(src[1] - src[0]), 1.0))
-    height = float(max(np.linalg.norm(src[3] - src[0]), 1.0))
+    config = config_manager.load()
+    base_width, base_height = config["camera"]["resolution"]
+    downscale_factor = float(config["processing"]["downscale_factor"])
+    output_width = max(1, int(round(base_width * downscale_factor)))
+    output_height = max(1, int(round(base_height * downscale_factor)))
     dst = np.array(
-        [[0, 0], [width - 1, 0], [width - 1, height - 1], [0, height - 1]],
+        [
+            [0, 0],
+            [output_width - 1, 0],
+            [output_width - 1, output_height - 1],
+            [0, output_height - 1],
+        ],
         dtype=np.float32,
     )
     matrix = cv2.getPerspectiveTransform(src, dst)
@@ -233,6 +242,7 @@ def save_perspective() -> Response:
             }
         }
     )
+    restart_processor()
     return jsonify(updated)
 
 
