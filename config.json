@@ -2,6 +2,8 @@
   "camera": {
     "type": "usb",
     "device": 0,
+    "rtsp_enabled": false,
+    "rtsp_url": "",
     "resolution": [
       1280,
       720
@@ -50,6 +52,10 @@
     "track_max_distance": 80,
     "track_max_missing_frames": 8,
     "debug_mode": false,
+    "undistort_enabled": true,
+    "perspective_enabled": true,
+    "blur_enabled": true,
+    "morphology_enabled": true,
     "exclude_blue_floor": false,
     "blue_hsv_low": [
       90,

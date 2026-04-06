@@ -8,6 +8,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "camera": {
         "type": "usb",
         "device": 0,
+        "rtsp_enabled": False,
+        "rtsp_url": "",
         "resolution": [1280, 720],
         "fps": 30,
     },
@@ -53,6 +55,10 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "track_max_distance": 80,
         "track_max_missing_frames": 8,
         "debug_mode": False,
+        "undistort_enabled": True,
+        "perspective_enabled": True,
+        "blur_enabled": True,
+        "morphology_enabled": True,
         "exclude_blue_floor": False,
         "blue_hsv_low": [90, 50, 40],
         "blue_hsv_high": [135, 255, 255],
@@ -112,6 +118,8 @@ class ConfigManager:
         camera["device"] = int(camera.get("device", 0))
         camera["fps"] = int(camera.get("fps", 30))
         camera["type"] = str(camera.get("type", "usb")).lower()
+        camera["rtsp_enabled"] = bool(camera.get("rtsp_enabled", False))
+        camera["rtsp_url"] = str(camera.get("rtsp_url", ""))
 
         roi = config["roi"]
         roi["enabled"] = bool(roi.get("enabled", False))
@@ -174,6 +182,10 @@ class ConfigManager:
             processing.get("track_max_missing_frames", 8)
         )
         processing["debug_mode"] = bool(processing.get("debug_mode", False))
+        processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
+        processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
+        processing["blur_enabled"] = bool(processing.get("blur_enabled", True))
+        processing["morphology_enabled"] = bool(processing.get("morphology_enabled", True))
         processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))
         processing["blue_hsv_low"] = self._normalize_hsv_triplet(
             processing.get("blue_hsv_low", [90, 50, 40]),

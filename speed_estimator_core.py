@@ -29,6 +29,7 @@ class OverlayMeasurement:
     centroid: tuple[float, float]
     expires_at: float
     track_id: int
+    color: tuple[int, int, int]
 
 
 class SpeedEstimator:
@@ -55,6 +56,10 @@ class SpeedEstimator:
         self.open_iterations = int(processing["open_iterations"])
         self.dilate_iterations = int(processing["dilate_iterations"])
         self.debug_mode = bool(processing["debug_mode"])
+        self.undistort_enabled = bool(processing["undistort_enabled"])
+        self.perspective_enabled = bool(processing["perspective_enabled"])
+        self.blur_enabled = bool(processing["blur_enabled"])
+        self.morphology_enabled = bool(processing["morphology_enabled"])
         self.exclude_blue_floor = bool(processing["exclude_blue_floor"])
         self.blue_hsv_low = np.array(processing["blue_hsv_low"], dtype=np.uint8)
         self.blue_hsv_high = np.array(processing["blue_hsv_high"], dtype=np.uint8)
@@ -104,10 +109,10 @@ class SpeedEstimator:
 
     def _apply_corrections(self, frame: np.ndarray) -> np.ndarray:
         corrected = frame.copy()
-        if self.camera_matrix is not None and self.dist_coeffs is not None:
+        if self.undistort_enabled and self.camera_matrix is not None and self.dist_coeffs is not None:
             corrected = cv2.undistort(corrected, self.camera_matrix, self.dist_coeffs)
 
-        if self.homography_matrix is not None:
+        if self.perspective_enabled and self.homography_matrix is not None:
             corrected = cv2.warpPerspective(
                 corrected,
                 self.homography_matrix,
@@ -117,7 +122,7 @@ class SpeedEstimator:
 
     def _motion_mask(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if self.blur_kernel_size > 1:
+        if self.blur_enabled and self.blur_kernel_size > 1:
             gray = cv2.GaussianBlur(gray, (self.blur_kernel_size, self.blur_kernel_size), 0)
         fg_mask = self.background_subtractor.apply(gray)
 
@@ -133,15 +138,17 @@ class SpeedEstimator:
         _, fg_mask = cv2.threshold(
             fg_mask, self.effective_threshold_value, 255, cv2.THRESH_BINARY
         )
-        fg_mask = cv2.medianBlur(fg_mask, self.blur_kernel_size)
-        kernel = np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
-        fg_mask = cv2.morphologyEx(
-            fg_mask,
-            cv2.MORPH_OPEN,
-            kernel,
-            iterations=self.open_iterations,
-        )
-        fg_mask = cv2.dilate(fg_mask, kernel, iterations=self.dilate_iterations)
+        if self.blur_enabled and self.blur_kernel_size > 1:
+            fg_mask = cv2.medianBlur(fg_mask, self.blur_kernel_size)
+        if self.morphology_enabled:
+            kernel = np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
+            fg_mask = cv2.morphologyEx(
+                fg_mask,
+                cv2.MORPH_OPEN,
+                kernel,
+                iterations=self.open_iterations,
+            )
+            fg_mask = cv2.dilate(fg_mask, kernel, iterations=self.dilate_iterations)
         return fg_mask
 
     def _find_detections(self, mask: np.ndarray) -> list[dict[str, Any]]:
@@ -213,6 +220,7 @@ class SpeedEstimator:
                     "speed_kmh": track.speed_kmh,
                     "speed_px_s": track.speed_px_s,
                     "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
+                    "color": self._track_color(track.track_id),
                 }
                 events.append(event)
                 self._log_event(event, now)
@@ -264,6 +272,7 @@ class SpeedEstimator:
             "speed_kmh": speed_kmh,
             "speed_px_s": 0.0,
             "speed_label": f"{speed_kmh:.1f} km/h",
+            "color": self._track_color(track.track_id),
         }
         self.active_measurements.append(
             OverlayMeasurement(
@@ -271,6 +280,7 @@ class SpeedEstimator:
                 centroid=current_centroid,
                 expires_at=now + self.overlay_hold_seconds,
                 track_id=track.track_id,
+                color=event["color"],
             )
         )
         track.crossed_lines.clear()
@@ -328,17 +338,15 @@ class SpeedEstimator:
         for event in events:
             if self.measurement_mode == "tracking" or self.debug_mode:
                 x, y, w, h = event["bbox"]
-                cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 220, 0), 2)
-                label = f"ID {event['id']} {event['speed_label']}"
-                cv2.putText(
+                color = event.get("color", (0, 220, 0))
+                cv2.rectangle(annotated, (x, y), (x + w, y + h), color, 2)
+                self._draw_label_badges(
                     annotated,
-                    label,
-                    (x, max(20, y - 8)),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.5,
-                    (0, 220, 0),
-                    2,
-                    cv2.LINE_AA,
+                    x,
+                    y,
+                    f"ID {event['id']}",
+                    event["speed_label"],
+                    color,
                 )
 
         self._draw_measurement_lines(annotated)
@@ -419,26 +427,15 @@ class SpeedEstimator:
     def _draw_active_measurements(self, frame: np.ndarray) -> None:
         for measurement in self.active_measurements:
             x, y = self._as_int_point(measurement.centroid)
-            text = f"ID {measurement.track_id} {measurement.label}"
-            cv2.putText(
+            anchor_x = max(10, x - 56)
+            anchor_y = max(36, y - 24)
+            self._draw_label_badges(
                 frame,
-                text,
-                (max(10, x - 40), max(30, y - 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (255, 255, 255),
-                3,
-                cv2.LINE_AA,
-            )
-            cv2.putText(
-                frame,
-                text,
-                (max(10, x - 40), max(30, y - 20)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.8,
-                (20, 20, 20),
-                1,
-                cv2.LINE_AA,
+                anchor_x,
+                anchor_y,
+                f"ID {measurement.track_id}",
+                measurement.label,
+                measurement.color,
             )
 
     def _prune_measurements(self) -> None:
@@ -475,6 +472,63 @@ class SpeedEstimator:
         if self.scale_ppm > 0:
             return f"{speed_kmh:.1f} km/h"
         return f"{speed_px_s:.1f} px/s"
+
+    def _track_color(self, track_id: int) -> tuple[int, int, int]:
+        palette = [
+            (0, 200, 255),
+            (0, 220, 120),
+            (255, 170, 0),
+            (220, 100, 255),
+            (255, 90, 90),
+            (80, 180, 255),
+        ]
+        return palette[(track_id - 1) % len(palette)]
+
+    def _draw_label_badges(
+        self,
+        frame: np.ndarray,
+        x: int,
+        y: int,
+        id_text: str,
+        speed_text: str,
+        color: tuple[int, int, int],
+    ) -> None:
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.55
+        thickness = 1
+        padding_x = 8
+        padding_y = 6
+        gap = 6
+        (id_w, id_h), _ = cv2.getTextSize(id_text, font, font_scale, thickness)
+        (speed_w, speed_h), _ = cv2.getTextSize(speed_text, font, font_scale, thickness)
+        box_h = max(id_h, speed_h) + padding_y * 2
+        id_box_w = id_w + padding_x * 2
+        speed_box_w = speed_w + padding_x * 2
+        top = max(2, y - box_h)
+        speed_x = x + id_box_w + gap
+
+        cv2.rectangle(frame, (x, top), (x + id_box_w, top + box_h), color, -1)
+        cv2.rectangle(frame, (speed_x, top), (speed_x + speed_box_w, top + box_h), (18, 18, 18), -1)
+        cv2.putText(
+            frame,
+            id_text,
+            (x + padding_x, top + box_h - padding_y),
+            font,
+            font_scale,
+            (255, 255, 255),
+            thickness,
+            cv2.LINE_AA,
+        )
+        cv2.putText(
+            frame,
+            speed_text,
+            (speed_x + padding_x, top + box_h - padding_y),
+            font,
+            font_scale,
+            color,
+            thickness + 1,
+            cv2.LINE_AA,
+        )
 
     def _as_points(self, values: Any) -> tuple[tuple[float, float], tuple[float, float]] | None:
         if not isinstance(values, list) or len(values) != 2:
