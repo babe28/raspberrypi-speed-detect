@@ -1,0 +1,42 @@
+{
+  "camera": {
+    "type": "usb",
+    "device": 0,
+    "resolution": [
+      1280,
+      720
+    ],
+    "fps": 30
+  },
+  "calibration": {
+    "camera_matrix": null,
+    "dist_coeffs": null
+  },
+  "perspective": {
+    "src_points": [],
+    "homography_matrix": null
+  },
+  "roi": {
+    "polygon": [],
+    "enabled": false
+  },
+  "scale": {
+    "known_distance_m": 2.0,
+    "pixel_distance": 0.0,
+    "ppm": 0.0
+  },
+  "processing": {
+    "downscale_factor": 0.5,
+    "min_contour_area": 500,
+    "max_speed_kmh": 50.0,
+    "warmup_frames": 15,
+    "background_history": 300,
+    "background_var_threshold": 32,
+    "track_max_distance": 80,
+    "track_max_missing_frames": 8
+  },
+  "logging": {
+    "enable_csv": true,
+    "csv_path": "logs/speed_log.csv"
+  }
+}

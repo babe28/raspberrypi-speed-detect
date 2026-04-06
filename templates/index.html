@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soapbox Speed Camera Config</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <main class="layout">
+    <section class="panel hero">
+      <div>
+        <p class="eyebrow">Soapbox Speed Camera</p>
+        <h1>設定とライブ確認</h1>
+        <p class="lead">カメラ設定、ROI、多角形座標、4点Perspective、スケール校正をブラウザから更新できます。</p>
+      </div>
+      <img class="stream" src="/stream" alt="Live stream">
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>カメラ</h2>
+        <label>種別
+          <select id="camera-type">
+            <option value="usb">USB</option>
+            <option value="csi">CSI</option>
+          </select>
+        </label>
+        <label>デバイス
+          <input id="camera-device" type="number" min="0" step="1">
+        </label>
+        <label>解像度 幅
+          <input id="camera-width" type="number" min="1" step="1">
+        </label>
+        <label>解像度 高さ
+          <input id="camera-height" type="number" min="1" step="1">
+        </label>
+        <label>FPS
+          <input id="camera-fps" type="number" min="1" step="1">
+        </label>
+      </article>
+
+      <article class="panel">
+        <h2>処理</h2>
+        <label>ダウンスケール
+          <input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1">
+        </label>
+        <label>最小輪郭面積
+          <input id="min-contour-area" type="number" min="1" step="1">
+        </label>
+        <label>最大速度 km/h
+          <input id="max-speed-kmh" type="number" min="1" step="0.1">
+        </label>
+      </article>
+
+      <article class="panel wide">
+        <h2>ROI</h2>
+        <label class="inline">
+          <input id="roi-enabled" type="checkbox">
+          ROIを有効化
+        </label>
+        <p class="hint">形式: `[[x1,y1],[x2,y2],...]`</p>
+        <textarea id="roi-polygon" rows="5"></textarea>
+      </article>
+
+      <article class="panel wide">
+        <h2>Perspective 4点</h2>
+        <p class="hint">形式: `[[x1,y1],[x2,y2],[x3,y3],[x4,y4]]`</p>
+        <p class="hint">点の順序は 左上 → 右上 → 右下 → 左下 です。</p>
+        <textarea id="perspective-points" rows="4"></textarea>
+        <button id="save-perspective" type="button">Perspective保存</button>
+      </article>
+
+      <article class="panel">
+        <h2>スケール</h2>
+        <p class="hint">2点をJSONで入力して pixels per meter を計算します。</p>
+        <label>2点
+          <input id="scale-points" type="text" placeholder="[[100,100],[400,100]]">
+        </label>
+        <label>実距離 m
+          <input id="known-distance" type="number" min="0.01" step="0.01">
+        </label>
+        <button id="save-scale" type="button">スケール計算</button>
+        <p id="ppm-view" class="ppm"></p>
+      </article>
+
+      <article class="panel actions">
+        <h2>保存</h2>
+        <button id="reload-config" type="button">再読込</button>
+        <button id="save-config" type="button">設定保存</button>
+        <button id="take-snapshot" type="button">スナップショット取得</button>
+        <p id="status" class="status"></p>
+      </article>
+
+      <article class="panel wide">
+        <h2>スナップショット</h2>
+        <img id="snapshot-image" class="snapshot" alt="Snapshot preview">
+      </article>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

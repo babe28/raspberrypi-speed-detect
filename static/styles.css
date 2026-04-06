@@ -1,0 +1,145 @@
+:root {
+  --bg: #f4efe6;
+  --panel: rgba(255, 251, 245, 0.92);
+  --text: #152321;
+  --muted: #5d6b67;
+  --accent: #0b7a75;
+  --accent-strong: #084c61;
+  --border: rgba(8, 76, 97, 0.15);
+  --shadow: 0 20px 50px rgba(15, 46, 56, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Hiragino Sans", sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top right, rgba(11, 122, 117, 0.22), transparent 30%),
+    linear-gradient(135deg, #f6f1e8 0%, #d8ebe7 100%);
+}
+
+.layout {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow);
+  padding: 20px;
+  backdrop-filter: blur(8px);
+}
+
+.panel.wide {
+  grid-column: 1 / -1;
+}
+
+.hero {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1.1fr 1fr;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+}
+
+h1, h2 {
+  margin-top: 0;
+}
+
+.lead,
+.hint {
+  color: var(--muted);
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+
+.inline {
+  grid-auto-flow: column;
+  justify-content: start;
+  align-items: center;
+  gap: 10px;
+}
+
+input,
+select,
+textarea,
+button {
+  border-radius: 12px;
+  border: 1px solid rgba(21, 35, 33, 0.15);
+  font: inherit;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+textarea {
+  min-height: 110px;
+  resize: vertical;
+}
+
+button {
+  padding: 11px 16px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: white;
+  cursor: pointer;
+  border: none;
+  margin-right: 8px;
+  margin-bottom: 8px;
+}
+
+.stream,
+.snapshot {
+  width: 100%;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  background: rgba(8, 76, 97, 0.08);
+  min-height: 220px;
+  object-fit: contain;
+}
+
+.status,
+.ppm {
+  min-height: 1.4em;
+  color: var(--accent-strong);
+}
+
+.status.error {
+  color: #a62929;
+}
+
+@media (max-width: 900px) {
+  .hero {
+    grid-template-columns: 1fr;
+  }
+}
