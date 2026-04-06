@@ -16,8 +16,6 @@
       </div>
       <div class="topbar-actions">
         <button id="reload-config" type="button" class="ghost">再読込</button>
-        <button id="save-config" type="button">基本設定を保存</button>
-        <button id="take-snapshot" type="button">スナップショット取得</button>
       </div>
       <p id="status" class="status"></p>
     </header>
@@ -31,6 +29,8 @@
               <h2>スナップショット編集</h2>
             </div>
             <div class="mini-actions">
+              <button id="take-snapshot" type="button">スナップショット取得</button>
+              <button id="save-config" type="button">基本設定を保存</button>
               <button id="clear-current-points" type="button" class="ghost">現在モードだけ消す</button>
               <button id="clear-all-overlays" type="button" class="ghost">全消去</button>
             </div>
@@ -174,45 +174,19 @@
             <label class="inline compact"><input id="exclude-blue-floor" type="checkbox">青床を除外</label>
           </div>
           <div class="form-grid four">
-            <label>最小輪郭
-              <input id="min-contour-area" type="number" min="1" step="1">
-            </label>
-            <label>最大輪郭
-              <input id="max-contour-area" type="number" min="1" step="1">
-            </label>
-            <label>二値化
-              <input id="threshold-value" type="number" min="1" max="255" step="1">
-            </label>
-            <label>最大速度
-              <input id="max-speed-kmh" type="number" min="1" step="0.1">
-            </label>
-            <label>背景履歴
-              <input id="background-history" type="number" min="1" step="1">
-            </label>
-            <label>背景しきい値
-              <input id="background-var-threshold" type="number" min="1" step="1">
-            </label>
-            <label>ブラー
-              <input id="blur-kernel-size" type="number" min="1" step="2">
-            </label>
-            <label>モルフォ核
-              <input id="morph-kernel-size" type="number" min="1" step="2">
-            </label>
-            <label>Open回数
-              <input id="open-iterations" type="number" min="0" step="1">
-            </label>
-            <label>Dilate回数
-              <input id="dilate-iterations" type="number" min="0" step="1">
-            </label>
-            <label>追跡距離
-              <input id="track-max-distance" type="number" min="1" step="1">
-            </label>
-            <label>見失い許容
-              <input id="track-max-missing-frames" type="number" min="1" step="1">
-            </label>
-            <label>ウォームアップ
-              <input id="warmup-frames" type="number" min="0" step="1">
-            </label>
+            <label>最小輪郭<input id="min-contour-area" type="number" min="1" step="1"></label>
+            <label>最大輪郭<input id="max-contour-area" type="number" min="1" step="1"></label>
+            <label>二値化<input id="threshold-value" type="number" min="1" max="255" step="1"></label>
+            <label>最大速度<input id="max-speed-kmh" type="number" min="1" step="0.1"></label>
+            <label>背景履歴<input id="background-history" type="number" min="1" step="1"></label>
+            <label>背景しきい値<input id="background-var-threshold" type="number" min="1" step="1"></label>
+            <label>ブラー<input id="blur-kernel-size" type="number" min="1" step="2"></label>
+            <label>モルフォ核<input id="morph-kernel-size" type="number" min="1" step="2"></label>
+            <label>Open回数<input id="open-iterations" type="number" min="0" step="1"></label>
+            <label>Dilate回数<input id="dilate-iterations" type="number" min="0" step="1"></label>
+            <label>追跡距離<input id="track-max-distance" type="number" min="1" step="1"></label>
+            <label>見失い許容<input id="track-max-missing-frames" type="number" min="1" step="1"></label>
+            <label>ウォームアップ<input id="warmup-frames" type="number" min="0" step="1"></label>
           </div>
           <details class="details-box">
             <summary>青床除外 HSV</summary>
@@ -265,10 +239,25 @@
         <article class="panel compact-panel">
           <div class="panel-header">
             <div>
+              <p class="panel-label">Perspective Preview</p>
+              <h2>パース後プレビュー</h2>
+            </div>
+            <span class="pill">snapshot</span>
+          </div>
+          <img id="perspective-preview" class="stream preview is-empty" alt="Perspective preview">
+          <p class="hint">スナップショットから生成する静止プレビューです。動画化はしないので負荷は増えにくいです。</p>
+        </article>
+
+        <article class="panel compact-panel">
+          <div class="panel-header">
+            <div>
               <p class="panel-label">Detections</p>
               <h2>最新ログ</h2>
             </div>
-            <span class="pill">最新20件</span>
+            <div class="mini-actions">
+              <span class="pill">最新20件</span>
+              <button id="clear-events" type="button" class="ghost">消去</button>
+            </div>
           </div>
           <div class="event-log-shell">
             <table class="event-log-table">
@@ -302,21 +291,11 @@
                 <option value="csi">CSI</option>
               </select>
             </label>
-            <label>デバイス
-              <input id="camera-device" type="number" min="0" step="1">
-            </label>
-            <label>幅
-              <input id="camera-width" type="number" min="1" step="1">
-            </label>
-            <label>高さ
-              <input id="camera-height" type="number" min="1" step="1">
-            </label>
-            <label>FPS
-              <input id="camera-fps" type="number" min="1" step="1">
-            </label>
-            <label>ダウンスケール
-              <input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1">
-            </label>
+            <label>デバイス<input id="camera-device" type="number" min="0" step="1"></label>
+            <label>幅<input id="camera-width" type="number" min="1" step="1"></label>
+            <label>高さ<input id="camera-height" type="number" min="1" step="1"></label>
+            <label>FPS<input id="camera-fps" type="number" min="1" step="1"></label>
+            <label>ダウンスケール<input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1"></label>
             <label class="span-two">RTSP URL
               <input id="rtsp-url" type="text" placeholder="rtsp://user:pass@camera/stream">
             </label>
@@ -333,50 +312,17 @@
         </div>
       </div>
       <div class="help-grid">
-        <article class="help-card">
-          <h3>RTSP / USB切替</h3>
-          <p>RTSP をオンにすると USB / CSI の代わりに RTSP URL を読みます。別端末の配信を使ったデバッグに向いています。</p>
-        </article>
-        <article class="help-card">
-          <h3>最小輪郭 / 最大輪郭</h3>
-          <p>小さすぎるノイズや大きすぎる誤検知を除外します。ミニカーでは最小輪郭を下げると拾いやすくなります。</p>
-        </article>
-        <article class="help-card">
-          <h3>二値化</h3>
-          <p>背景差分後の白黒化の強さです。下げると拾いやすく、上げるとノイズを抑えやすくなります。</p>
-        </article>
-        <article class="help-card">
-          <h3>背景履歴 / 背景しきい値</h3>
-          <p>背景モデルの安定度を決めます。履歴を大きくすると安定しやすく、しきい値を上げると変化に鈍くなります。</p>
-        </article>
-        <article class="help-card">
-          <h3>Blur / Morphology</h3>
-          <p>ブラーは細かなノイズをなだらかにし、Morphology は小さなゴミ除去と穴埋めをします。重いときはこの2つを切ると効きやすいです。</p>
-        </article>
-        <article class="help-card">
-          <h3>Open / Dilate</h3>
-          <p>Open は小さなゴミを削り、Dilate は検知領域を少し太らせます。やりすぎると形が膨らみます。</p>
-        </article>
-        <article class="help-card">
-          <h3>追跡距離 / 見失い許容</h3>
-          <p>前フレームとの対応づけ条件です。速い物体は距離を少し広げると追跡しやすくなります。</p>
-        </article>
-        <article class="help-card">
-          <h3>再検知クールダウン</h3>
-          <p>一度検知したあと、同じ track を何秒抑えるかの設定です。無視するか、小さく表示するかを選べます。</p>
-        </article>
-        <article class="help-card">
-          <h3>青床除外 HSV</h3>
-          <p>カラーピッカーで床色を選び、その周辺色を HSV で除外します。数値欄は微調整用です。</p>
-        </article>
-        <article class="help-card">
-          <h3>Line Crossing</h3>
-          <p>Line A と Line B を通過した時間差で速度を出します。`distance_m` には2本の実距離を入れてください。</p>
-        </article>
-        <article class="help-card">
-          <h3>ppm / px/s</h3>
-          <p>Scale 未設定の間は `px/s` 表示です。実速度にするには Scale で2点と既知距離を設定します。</p>
-        </article>
+        <article class="help-card"><h3>RTSP / USB切替</h3><p>RTSP をオンにすると USB / CSI の代わりに RTSP URL を読みます。別端末の配信を使ったデバッグに向いています。</p></article>
+        <article class="help-card"><h3>最小輪郭 / 最大輪郭</h3><p>小さすぎるノイズや大きすぎる誤検知を除外します。ミニカーでは最小輪郭を下げると拾いやすくなります。</p></article>
+        <article class="help-card"><h3>二値化</h3><p>背景差分後の白黒化の強さです。下げると拾いやすく、上げるとノイズを抑えやすくなります。</p></article>
+        <article class="help-card"><h3>背景履歴 / 背景しきい値</h3><p>背景モデルの安定度を決めます。履歴を大きくすると安定しやすく、しきい値を上げると変化に鈍くなります。</p></article>
+        <article class="help-card"><h3>Blur / Morphology</h3><p>ブラーは細かなノイズをなだらかにし、Morphology は小さなゴミ除去と穴埋めをします。重いときはこの2つを切ると効きやすいです。</p></article>
+        <article class="help-card"><h3>Open / Dilate</h3><p>Open は小さなゴミを削り、Dilate は検知領域を少し太らせます。やりすぎると形が膨らみます。</p></article>
+        <article class="help-card"><h3>追跡距離 / 見失い許容</h3><p>前フレームとの対応づけ条件です。速い物体は距離を少し広げると追跡しやすくなります。</p></article>
+        <article class="help-card"><h3>再検知クールダウン</h3><p>一度検知したあと、同じ track を何秒抑えるかの設定です。無視するか、小さく表示するかを選べます。</p></article>
+        <article class="help-card"><h3>青床除外 HSV</h3><p>カラーピッカーで床色を選び、その周辺色を HSV で除外します。数値欄は微調整用です。</p></article>
+        <article class="help-card"><h3>Line Crossing</h3><p>Line A と Line B を通過した時間差で速度を出します。distance_m には2本の実距離を入れてください。</p></article>
+        <article class="help-card"><h3>ppm / px/s</h3><p>Scale 未設定の間は px/s 表示です。実速度にするには Scale で2点と既知距離を設定します。</p></article>
       </div>
     </section>
   </main>

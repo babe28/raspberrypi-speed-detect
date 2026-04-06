@@ -29,6 +29,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "known_distance_m": 2.0,
         "pixel_distance": 0.0,
         "ppm": 0.0,
+        "points": [],
     },
     "measurement": {
         "mode": "tracking",
@@ -143,6 +144,7 @@ class ConfigManager:
         scale["known_distance_m"] = float(scale.get("known_distance_m", 2.0))
         scale["pixel_distance"] = float(scale.get("pixel_distance", 0.0))
         scale["ppm"] = float(scale.get("ppm", 0.0))
+        scale["points"] = [self._normalize_point(point) for point in scale.get("points", [])]
 
         measurement = config["measurement"]
         measurement["mode"] = str(measurement.get("mode", "tracking")).lower()

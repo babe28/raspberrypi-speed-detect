@@ -100,6 +100,49 @@ def _store_latest_stream_frame(frame: np.ndarray) -> None:
         latest_stream_frame_jpeg = buffer.tobytes()
 
 
+def _latest_snapshot_frame() -> np.ndarray | None:
+    with latest_snapshot_lock:
+        cached = latest_snapshot_jpeg
+    if cached is None:
+        return None
+    array = np.frombuffer(cached, dtype=np.uint8)
+    return cv2.imdecode(array, cv2.IMREAD_COLOR)
+
+
+def _build_perspective_preview() -> bytes | None:
+    frame = _latest_snapshot_frame()
+    if frame is None:
+        return None
+
+    config = config_manager.load()
+    matrix_raw = config["perspective"].get("homography_matrix")
+    if not matrix_raw:
+        return None
+
+    corrected = frame.copy()
+    processing = config["processing"]
+    camera_matrix_raw = config["calibration"].get("camera_matrix")
+    dist_coeffs_raw = config["calibration"].get("dist_coeffs")
+    if (
+        processing.get("undistort_enabled", True)
+        and camera_matrix_raw is not None
+        and dist_coeffs_raw is not None
+    ):
+        camera_matrix = np.array(camera_matrix_raw, dtype=np.float32)
+        dist_coeffs = np.array(dist_coeffs_raw, dtype=np.float32)
+        corrected = cv2.undistort(corrected, camera_matrix, dist_coeffs)
+
+    matrix = np.array(matrix_raw, dtype=np.float32)
+    if matrix.shape != (3, 3):
+        return None
+
+    preview = cv2.warpPerspective(corrected, matrix, (corrected.shape[1], corrected.shape[0]))
+    success, buffer = cv2.imencode(".jpg", preview, [int(cv2.IMWRITE_JPEG_QUALITY), 82])
+    if not success:
+        return None
+    return buffer.tobytes()
+
+
 def _processing_loop() -> None:
     global processor_error
     try:
@@ -175,6 +218,14 @@ def get_recent_events() -> Response:
         return jsonify({"events": list(recent_events)})
 
 
+@app.post("/api/recent-events/clear")
+def clear_recent_events() -> Response:
+    with recent_events_lock:
+        recent_events.clear()
+        last_event_by_track.clear()
+    return jsonify({"status": "ok"})
+
+
 @app.post("/api/config")
 def save_config() -> Response:
     payload = request.get_json(force=True) or {}
@@ -205,6 +256,7 @@ def calibrate_scale() -> Response:
                 "known_distance_m": known_distance_m,
                 "pixel_distance": pixel_distance,
                 "ppm": ppm,
+                "points": points,
             }
         }
     )
@@ -267,6 +319,19 @@ def snapshot() -> Response:
         ),
         503,
     )
+
+
+@app.get("/api/perspective-preview")
+def perspective_preview() -> Response:
+    ensure_processor_started()
+    preview = _build_perspective_preview()
+    if preview is None:
+        return (
+            jsonify({"error": "Perspective preview is not ready yet."}),
+            503,
+        )
+    encoded = base64.b64encode(preview).decode("ascii")
+    return jsonify({"image_base64": encoded})
 
 
 @app.get("/stream")

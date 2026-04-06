@@ -12,6 +12,7 @@ const eventLogBodyEl = document.getElementById("event-log-body");
 const blueLowPreviewEl = document.getElementById("blue-low-preview");
 const blueHighPreviewEl = document.getElementById("blue-high-preview");
 const bluePickerLabelEl = document.getElementById("blue-picker-label");
+const perspectivePreviewEl = document.getElementById("perspective-preview");
 
 const state = {
   config: null,
@@ -37,20 +38,20 @@ function setStatus(message, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
-function setMode(mode) {
-  state.mode = mode;
-  const labels = {
-    pan: "閲覧モード",
-    roi: "ROI入力中",
-    perspective: "Perspective入力中",
-    scale: "スケール入力中",
-    lineA: "Line A 入力中",
-    lineB: "Line B 入力中",
-  };
-  modeBadgeEl.textContent = labels[mode] || "モード未選択";
-  document.querySelectorAll(".mode-button").forEach((button) => {
-    button.classList.toggle("active", button.dataset.mode === mode);
-  });
+function getValue(id) {
+  return document.getElementById(id).value;
+}
+
+function setValue(id, value) {
+  document.getElementById(id).value = value;
+}
+
+function getChecked(id) {
+  return document.getElementById(id).checked;
+}
+
+function roundPoint([x, y]) {
+  return [Math.round(x), Math.round(y)];
 }
 
 function readJsonInput(elementId, fallback = []) {
@@ -65,20 +66,20 @@ function writeJson(elementId, value) {
   document.getElementById(elementId).value = JSON.stringify(value);
 }
 
-function roundPoint([x, y]) {
-  return [Math.round(x), Math.round(y)];
-}
-
-function getValue(id) {
-  return document.getElementById(id).value;
-}
-
-function setValue(id, value) {
-  document.getElementById(id).value = value;
-}
-
-function getChecked(id) {
-  return document.getElementById(id).checked;
+function setMode(mode) {
+  state.mode = mode;
+  const labels = {
+    pan: "編集解除",
+    roi: "ROI入力中",
+    perspective: "Perspective入力中",
+    scale: "Scale入力中",
+    lineA: "Line A入力中",
+    lineB: "Line B入力中",
+  };
+  modeBadgeEl.textContent = labels[mode] || "モード選択待ち";
+  document.querySelectorAll(".mode-button").forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
 }
 
 function hsv255ToCss(h, s, v) {
@@ -102,7 +103,6 @@ function rgbHexToHsv255(hex) {
   const r = parseInt(clean.slice(0, 2), 16) / 255;
   const g = parseInt(clean.slice(2, 4), 16) / 255;
   const b = parseInt(clean.slice(4, 6), 16) / 255;
-
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
   const delta = max - min;
@@ -158,73 +158,6 @@ function syncTextareas() {
   writeJson("line-a-points", state.lineAPoints.map(roundPoint));
   writeJson("line-b-points", state.lineBPoints.map(roundPoint));
   syncCounts();
-}
-
-function fillForm(config) {
-  state.config = config;
-  const processing = config.processing;
-  const measurement = config.measurement;
-
-  setValue("camera-type", config.camera.type);
-  setValue("camera-device", config.camera.device);
-  document.getElementById("rtsp-enabled").checked = Boolean(config.camera.rtsp_enabled);
-  setValue("rtsp-url", config.camera.rtsp_url || "");
-  setValue("camera-width", config.camera.resolution[0]);
-  setValue("camera-height", config.camera.resolution[1]);
-  setValue("camera-fps", config.camera.fps);
-  setValue("downscale-factor", processing.downscale_factor);
-  setValue("min-contour-area", processing.min_contour_area);
-  setValue("max-contour-area", processing.max_contour_area);
-  setValue("threshold-value", processing.threshold_value);
-  setValue("max-speed-kmh", processing.max_speed_kmh);
-  setValue("warmup-frames", processing.warmup_frames ?? 15);
-  setValue("background-history", processing.background_history);
-  setValue("background-var-threshold", processing.background_var_threshold);
-  setValue("blur-kernel-size", processing.blur_kernel_size);
-  setValue("morph-kernel-size", processing.morph_kernel_size);
-  setValue("open-iterations", processing.open_iterations);
-  setValue("dilate-iterations", processing.dilate_iterations);
-  setValue("track-max-distance", processing.track_max_distance);
-  setValue("track-max-missing-frames", processing.track_max_missing_frames);
-  setValue("known-distance", config.scale.known_distance_m);
-  setValue("measurement-mode", measurement.mode);
-  setValue("overlay-hold-seconds", measurement.overlay_hold_seconds);
-  setValue("repeat-behavior", measurement.repeat_behavior || "normal");
-  setValue("repeat-cooldown-seconds", measurement.repeat_cooldown_seconds ?? 0);
-  setValue("line-distance-m", measurement.line_crossing.distance_m);
-  document.getElementById("roi-enabled").checked = config.roi.enabled;
-  document.getElementById("debug-mode").checked = processing.debug_mode;
-  document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
-  document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
-  document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
-  document.getElementById("blur-enabled").checked = processing.blur_enabled;
-  document.getElementById("morphology-enabled").checked = processing.morphology_enabled;
-
-  const low = processing.blue_hsv_low || [90, 50, 40];
-  const high = processing.blue_hsv_high || [135, 255, 255];
-  setValue("blue-h-low", low[0]);
-  setValue("blue-s-low", low[1]);
-  setValue("blue-v-low", low[2]);
-  setValue("blue-h-high", high[0]);
-  setValue("blue-s-high", high[1]);
-  setValue("blue-v-high", high[2]);
-  bluePickerLabelEl.textContent = `Current HSV range loaded`;
-
-  state.roiPoints = (config.roi.polygon || []).map((point) => [...point]);
-  state.perspectivePoints = (config.perspective.src_points || []).map((point) => [...point]);
-  state.scalePoints = [];
-  state.lineAPoints = (measurement.line_crossing.line_a || []).map((point) => [...point]);
-  state.lineBPoints = (measurement.line_crossing.line_b || []).map((point) => [...point]);
-
-  if (config.scale.pixel_distance > 0 && config.scale.known_distance_m > 0) {
-    const y = 120;
-    state.scalePoints = [[100, y], [100 + config.scale.pixel_distance, y]];
-  }
-
-  syncTextareas();
-  ppmViewEl.textContent = `ppm: ${Number(config.scale.ppm || 0).toFixed(2)}`;
-  drawCanvas();
-  updateBluePreviews();
 }
 
 function drawPoint(point, color, label) {
@@ -289,8 +222,10 @@ function drawCanvas() {
 
   drawLine(state.scalePoints, "#ff6b6b");
   state.scalePoints.forEach((point, index) => drawPoint(point, "#ff6b6b", `S${index + 1}`));
+
   drawLine(state.lineAPoints, "#f7a600");
   state.lineAPoints.forEach((point, index) => drawPoint(point, "#f7a600", `A${index + 1}`));
+
   drawLine(state.lineBPoints, "#d94fff");
   state.lineBPoints.forEach((point, index) => drawPoint(point, "#d94fff", `B${index + 1}`));
 }
@@ -302,6 +237,7 @@ function renderRecentEvents(events) {
     `;
     return;
   }
+
   eventLogBodyEl.innerHTML = events
     .map(
       (event) => `
@@ -314,6 +250,69 @@ function renderRecentEvents(events) {
       `,
     )
     .join("");
+}
+
+function fillForm(config) {
+  state.config = config;
+  const processing = config.processing;
+  const measurement = config.measurement;
+
+  setValue("camera-type", config.camera.type);
+  setValue("camera-device", config.camera.device);
+  document.getElementById("rtsp-enabled").checked = Boolean(config.camera.rtsp_enabled);
+  setValue("rtsp-url", config.camera.rtsp_url || "");
+  setValue("camera-width", config.camera.resolution[0]);
+  setValue("camera-height", config.camera.resolution[1]);
+  setValue("camera-fps", config.camera.fps);
+  setValue("downscale-factor", processing.downscale_factor);
+  setValue("min-contour-area", processing.min_contour_area);
+  setValue("max-contour-area", processing.max_contour_area);
+  setValue("threshold-value", processing.threshold_value);
+  setValue("max-speed-kmh", processing.max_speed_kmh);
+  setValue("warmup-frames", processing.warmup_frames ?? 15);
+  setValue("background-history", processing.background_history);
+  setValue("background-var-threshold", processing.background_var_threshold);
+  setValue("blur-kernel-size", processing.blur_kernel_size);
+  setValue("morph-kernel-size", processing.morph_kernel_size);
+  setValue("open-iterations", processing.open_iterations);
+  setValue("dilate-iterations", processing.dilate_iterations);
+  setValue("track-max-distance", processing.track_max_distance);
+  setValue("track-max-missing-frames", processing.track_max_missing_frames);
+  setValue("known-distance", config.scale.known_distance_m);
+  setValue("measurement-mode", measurement.mode);
+  setValue("overlay-hold-seconds", measurement.overlay_hold_seconds);
+  setValue("repeat-behavior", measurement.repeat_behavior || "normal");
+  setValue("repeat-cooldown-seconds", measurement.repeat_cooldown_seconds ?? 0);
+  setValue("line-distance-m", measurement.line_crossing.distance_m);
+  document.getElementById("roi-enabled").checked = config.roi.enabled;
+  document.getElementById("debug-mode").checked = processing.debug_mode;
+  document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
+  document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
+  document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
+  document.getElementById("blur-enabled").checked = processing.blur_enabled;
+  document.getElementById("morphology-enabled").checked = processing.morphology_enabled;
+
+  const low = processing.blue_hsv_low || [90, 50, 40];
+  const high = processing.blue_hsv_high || [135, 255, 255];
+  setValue("blue-h-low", low[0]);
+  setValue("blue-s-low", low[1]);
+  setValue("blue-v-low", low[2]);
+  setValue("blue-h-high", high[0]);
+  setValue("blue-s-high", high[1]);
+  setValue("blue-v-high", high[2]);
+  bluePickerLabelEl.textContent = "Current HSV range loaded";
+
+  state.roiPoints = (config.roi.polygon || []).map((point) => [...point]);
+  state.perspectivePoints = (config.perspective.src_points || []).map((point) => [...point]);
+  state.scalePoints = (config.scale.points || []).map((point) => [...point]);
+  state.lineAPoints = (measurement.line_crossing.line_a || []).map((point) => [...point]);
+  state.lineBPoints = (measurement.line_crossing.line_b || []).map((point) => [...point]);
+
+  syncTextareas();
+  ppmViewEl.textContent = `ppm: ${Number(config.scale.ppm || 0).toFixed(2)}`;
+  drawCanvas();
+  updateBluePreviews();
+  loadPerspectivePreview().catch(() => {});
 }
 
 function getCanvasPoint(event) {
@@ -391,7 +390,7 @@ function syncFromTextarea(elementId, targetKey) {
 async function loadConfig() {
   const response = await fetch("/api/config");
   if (!response.ok) {
-    throw new Error("設定の取得に失敗しました。");
+    throw new Error("設定の読込に失敗しました。");
   }
   fillForm(await response.json());
   setStatus("設定を読み込みました。");
@@ -403,9 +402,33 @@ async function loadRecentEvents() {
   }
   const response = await fetch("/api/recent-events");
   if (!response.ok) {
-    throw new Error("検知ログの取得に失敗しました。");
+    throw new Error("最新ログの読込に失敗しました。");
   }
   renderRecentEvents((await response.json()).events || []);
+}
+
+async function clearRecentEvents() {
+  const response = await fetch("/api/recent-events/clear", { method: "POST" });
+  if (!response.ok) {
+    throw new Error("ログの消去に失敗しました。");
+  }
+  renderRecentEvents([]);
+  setStatus("最新ログを消去しました。");
+}
+
+async function loadPerspectivePreview() {
+  if (!perspectivePreviewEl) {
+    return;
+  }
+  const response = await fetch("/api/perspective-preview");
+  if (!response.ok) {
+    perspectivePreviewEl.removeAttribute("src");
+    perspectivePreviewEl.classList.add("is-empty");
+    return;
+  }
+  const data = await response.json();
+  perspectivePreviewEl.src = `data:image/jpeg;base64,${data.image_base64}`;
+  perspectivePreviewEl.classList.remove("is-empty");
 }
 
 function buildProcessingPayload() {
@@ -481,7 +504,7 @@ async function saveConfig() {
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
-    throw new Error("設定の保存に失敗しました。");
+    throw new Error("基本設定の保存に失敗しました。");
   }
   fillForm(await response.json());
   setStatus("基本設定を保存しました。");
@@ -499,6 +522,7 @@ async function savePerspective() {
   }
   fillForm(data);
   setStatus("Perspective設定を保存しました。");
+  loadPerspectivePreview().catch(() => {});
 }
 
 async function saveScale() {
@@ -516,6 +540,7 @@ async function saveScale() {
   }
   fillForm(data);
   setStatus("スケールを更新しました。");
+  loadPerspectivePreview().catch(() => {});
 }
 
 async function takeSnapshot() {
@@ -535,6 +560,7 @@ async function takeSnapshot() {
     state.image.src = `data:image/jpeg;base64,${data.image_base64}`;
   });
   setStatus("スナップショットを取得しました。");
+  loadPerspectivePreview().catch(() => {});
 }
 
 canvas.addEventListener("click", (event) => {
@@ -562,6 +588,9 @@ document.getElementById("save-scale").addEventListener("click", () => {
 });
 document.getElementById("take-snapshot").addEventListener("click", () => {
   takeSnapshot().catch((error) => setStatus(error.message, true));
+});
+document.getElementById("clear-events").addEventListener("click", () => {
+  clearRecentEvents().catch((error) => setStatus(error.message, true));
 });
 document.getElementById("clear-current-points").addEventListener("click", clearCurrentModePoints);
 document.getElementById("clear-all-overlays").addEventListener("click", clearAllOverlays);

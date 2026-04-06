@@ -25,7 +25,8 @@
   "scale": {
     "known_distance_m": 2.0,
     "pixel_distance": 0.0,
-    "ppm": 0.0
+    "ppm": 0.0,
+    "points": []
   },
   "measurement": {
     "mode": "tracking",

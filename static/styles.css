@@ -302,6 +302,20 @@ button.ghost {
   object-fit: cover;
 }
 
+.preview {
+  min-height: 160px;
+  object-fit: contain;
+  background:
+    linear-gradient(45deg, rgba(8, 76, 97, 0.05) 25%, transparent 25%, transparent 75%, rgba(8, 76, 97, 0.05) 75%),
+    linear-gradient(45deg, rgba(8, 76, 97, 0.05) 25%, transparent 25%, transparent 75%, rgba(8, 76, 97, 0.05) 75%);
+  background-position: 0 0, 16px 16px;
+  background-size: 32px 32px;
+}
+
+.preview.is-empty {
+  min-height: 180px;
+}
+
 .event-log-shell {
   max-height: 240px;
   overflow: auto;
