@@ -4,7 +4,7 @@ import base64
 from collections import deque
 from datetime import datetime
 import logging
-from threading import Lock
+from threading import Event, Lock, Thread
 import time
 from typing import Any
 
@@ -23,6 +23,13 @@ recent_events_lock = Lock()
 last_event_by_track: dict[int, dict[str, float]] = {}
 latest_snapshot_jpeg: bytes | None = None
 latest_snapshot_lock = Lock()
+latest_stream_frame_jpeg: bytes | None = None
+latest_stream_frame_lock = Lock()
+processor_thread: Thread | None = None
+processor_lock = Lock()
+processor_error: str | None = None
+processor_started = False
+processor_stop_event = Event()
 
 
 class SuppressRecentEventsFilter(logging.Filter):
@@ -80,18 +87,86 @@ def _store_latest_snapshot(frame: np.ndarray) -> None:
         latest_snapshot_jpeg = buffer.tobytes()
 
 
+def _store_latest_stream_frame(frame: np.ndarray) -> None:
+    global latest_stream_frame_jpeg
+    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    if not success:
+        return
+    with latest_stream_frame_lock:
+        latest_stream_frame_jpeg = buffer.tobytes()
+
+
+def _processing_loop() -> None:
+    global processor_error
+    try:
+        camera, config = _camera_and_config()
+        estimator = SpeedEstimator(config)
+    except Exception as exc:  # pragma: no cover - runtime environment dependent
+        processor_error = str(exc)
+        return
+
+    processor_error = None
+    try:
+        while not processor_stop_event.is_set():
+            ok, frame = camera.read()
+            if not ok or frame is None:
+                processor_error = "Camera frame could not be read."
+                time.sleep(0.5)
+                continue
+
+            _store_latest_snapshot(frame)
+            annotated, events = estimator.process(frame)
+            _store_latest_stream_frame(annotated)
+            _remember_events(events)
+    except Exception as exc:  # pragma: no cover - runtime environment dependent
+        processor_error = str(exc)
+    finally:
+        estimator.close()
+        camera.stop()
+
+
+def ensure_processor_started() -> None:
+    global processor_thread, processor_started
+    with processor_lock:
+        if processor_started and processor_thread is not None and processor_thread.is_alive():
+            return
+
+        processor_stop_event.clear()
+        processor_started = True
+        processor_thread = Thread(target=_processing_loop, daemon=True, name="speed-processor")
+        processor_thread.start()
+
+
+def restart_processor() -> None:
+    global processor_started
+    with processor_lock:
+        processor_stop_event.set()
+        thread = processor_thread
+
+    if thread is not None and thread.is_alive():
+        thread.join(timeout=1.5)
+
+    with processor_lock:
+        processor_started = False
+
+    ensure_processor_started()
+
+
 @app.get("/")
 def index() -> str:
+    ensure_processor_started()
     return render_template("index.html")
 
 
 @app.get("/api/config")
 def get_config() -> Response:
+    ensure_processor_started()
     return jsonify(config_manager.load())
 
 
 @app.get("/api/recent-events")
 def get_recent_events() -> Response:
+    ensure_processor_started()
     with recent_events_lock:
         return jsonify({"events": list(recent_events)})
 
@@ -100,6 +175,7 @@ def get_recent_events() -> Response:
 def save_config() -> Response:
     payload = request.get_json(force=True) or {}
     updated = config_manager.update(payload)
+    restart_processor()
     return jsonify(updated)
 
 
@@ -160,6 +236,7 @@ def save_perspective() -> Response:
 
 @app.get("/api/snapshot")
 def snapshot() -> Response:
+    ensure_processor_started()
     with latest_snapshot_lock:
         cached = latest_snapshot_jpeg
 
@@ -167,55 +244,35 @@ def snapshot() -> Response:
         encoded = base64.b64encode(cached).decode("ascii")
         return jsonify({"image_base64": encoded, "source": "stream-cache"})
 
-    try:
-        camera, _ = _camera_and_config()
-    except RuntimeError as exc:
-        return (
-            jsonify(
-                {
-                    "error": "Camera open failed. Check camera.type and device.",
-                    "details": str(exc),
-                }
-            ),
-            503,
-        )
-
-    try:
-        ok, frame = camera.read()
-        if not ok or frame is None:
-            return jsonify({"error": "Camera frame could not be captured."}), 503
-        success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-        if not success:
-            return jsonify({"error": "Snapshot encode failed."}), 500
-        encoded = base64.b64encode(buffer.tobytes()).decode("ascii")
-        return jsonify({"image_base64": encoded, "source": "direct-camera"})
-    finally:
-        camera.stop()
+    return (
+        jsonify(
+            {
+                "error": "Snapshot is not ready yet.",
+                "details": processor_error or "Background processor is starting.",
+            }
+        ),
+        503,
+    )
 
 
 @app.get("/stream")
 def stream() -> Response:
+    ensure_processor_started()
+
     def generate() -> bytes:
-        camera, config = _camera_and_config()
-        estimator = SpeedEstimator(config)
-        try:
-            while True:
-                ok, frame = camera.read()
-                if not ok or frame is None:
-                    break
-                _store_latest_snapshot(frame)
-                annotated, events = estimator.process(frame)
-                _remember_events(events)
-                success, buffer = cv2.imencode(".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
-                if not success:
-                    continue
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n"
-                )
-        finally:
-            estimator.close()
-            camera.stop()
+        while True:
+            with latest_stream_frame_lock:
+                frame = latest_stream_frame_jpeg
+
+            if frame is None:
+                time.sleep(0.1)
+                continue
+
+            yield (
+                b"--frame\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+            )
+            time.sleep(0.03)
 
     return Response(generate(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
