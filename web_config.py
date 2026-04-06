@@ -20,6 +20,8 @@ config_manager = ConfigManager()
 recent_events: deque[dict[str, Any]] = deque(maxlen=20)
 recent_events_lock = Lock()
 last_event_by_track: dict[int, dict[str, float]] = {}
+latest_snapshot_jpeg: bytes | None = None
+latest_snapshot_lock = Lock()
 
 
 def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
@@ -57,6 +59,15 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
                 }
             )
             last_event_by_track[track_id] = {"timestamp": now, "speed_kmh": speed_kmh}
+
+
+def _store_latest_snapshot(frame: np.ndarray) -> None:
+    global latest_snapshot_jpeg
+    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+    if not success:
+        return
+    with latest_snapshot_lock:
+        latest_snapshot_jpeg = buffer.tobytes()
 
 
 @app.get("/")
@@ -139,16 +150,38 @@ def save_perspective() -> Response:
 
 @app.get("/api/snapshot")
 def snapshot() -> Response:
-    camera, _ = _camera_and_config()
+    with latest_snapshot_lock:
+        cached = latest_snapshot_jpeg
+
+    if cached is not None:
+        encoded = base64.b64encode(cached).decode("ascii")
+        return jsonify({"image_base64": encoded, "source": "stream-cache"})
+
+    try:
+        camera, _ = _camera_and_config()
+    except RuntimeError as exc:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "カメラを開けませんでした。ライブ表示が動いていない場合は "
+                        "camera.type と device を確認してください。"
+                    ),
+                    "details": str(exc),
+                }
+            ),
+            503,
+        )
+
     try:
         ok, frame = camera.read()
         if not ok or frame is None:
-            return jsonify({"error": "Camera frame could not be captured."}), 500
+            return jsonify({"error": "Camera frame could not be captured."}), 503
         success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
         if not success:
             return jsonify({"error": "Snapshot encode failed."}), 500
         encoded = base64.b64encode(buffer.tobytes()).decode("ascii")
-        return jsonify({"image_base64": encoded})
+        return jsonify({"image_base64": encoded, "source": "direct-camera"})
     finally:
         camera.stop()
 
@@ -163,6 +196,7 @@ def stream() -> Response:
                 ok, frame = camera.read()
                 if not ok or frame is None:
                     break
+                _store_latest_snapshot(frame)
                 annotated, events = estimator.process(frame)
                 _remember_events(events)
                 success, buffer = cv2.imencode(".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
