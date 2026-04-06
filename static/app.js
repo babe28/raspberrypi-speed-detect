@@ -6,6 +6,7 @@ const modeBadgeEl = document.getElementById("mode-badge");
 const roiCountEl = document.getElementById("roi-count");
 const perspectiveCountEl = document.getElementById("perspective-count");
 const scaleCountEl = document.getElementById("scale-count");
+const eventLogBodyEl = document.getElementById("event-log-body");
 
 const state = {
   config: null,
@@ -169,6 +170,30 @@ function drawCanvas() {
   state.scalePoints.forEach((point, index) => drawPoint(point, "#ff6b6b", `S${index + 1}`));
 }
 
+function renderRecentEvents(events) {
+  if (!events.length) {
+    eventLogBodyEl.innerHTML = `
+      <tr>
+        <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
+      </tr>
+    `;
+    return;
+  }
+
+  eventLogBodyEl.innerHTML = events
+    .map(
+      (event) => `
+        <tr>
+          <td>${event.timestamp_label}</td>
+          <td>${event.id}</td>
+          <td>${Number(event.speed_kmh).toFixed(1)} km/h</td>
+          <td>${event.center_x}, ${event.center_y}</td>
+        </tr>
+      `,
+    )
+    .join("");
+}
+
 function getCanvasPoint(event) {
   const rect = canvas.getBoundingClientRect();
   const scaleX = canvas.width / rect.width;
@@ -236,6 +261,15 @@ async function loadConfig() {
   const config = await response.json();
   fillForm(config);
   setStatus("設定を読み込みました。");
+}
+
+async function loadRecentEvents() {
+  const response = await fetch("/api/recent-events");
+  if (!response.ok) {
+    throw new Error("検知ログの取得に失敗しました。");
+  }
+  const payload = await response.json();
+  renderRecentEvents(payload.events || []);
 }
 
 async function saveConfig() {
@@ -394,3 +428,7 @@ document.getElementById("scale-points").addEventListener("change", () => {
 
 setMode("pan");
 loadConfig().catch((error) => setStatus(error.message, true));
+loadRecentEvents().catch((error) => setStatus(error.message, true));
+window.setInterval(() => {
+  loadRecentEvents().catch(() => {});
+}, 1000);

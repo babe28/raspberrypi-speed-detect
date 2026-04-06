@@ -288,6 +288,41 @@ button.ghost {
   color: #a62929;
 }
 
+.event-log-shell {
+  overflow-x: auto;
+  border-radius: 18px;
+  border: 1px solid rgba(17, 33, 31, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.event-log-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 520px;
+}
+
+.event-log-table th,
+.event-log-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid rgba(17, 33, 31, 0.08);
+}
+
+.event-log-table th {
+  background: rgba(8, 76, 97, 0.08);
+  color: var(--accent-strong);
+  font-size: 0.9rem;
+}
+
+.event-log-table tbody tr:nth-child(odd) {
+  background: rgba(11, 122, 117, 0.04);
+}
+
+.empty-row {
+  color: var(--muted);
+  text-align: center;
+}
+
 @media (max-width: 1100px) {
   .hero,
   .workspace {

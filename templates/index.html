@@ -140,6 +140,33 @@
       <article class="panel wide">
         <div class="panel-header">
           <div>
+            <p class="panel-label">Detections</p>
+            <h2>最新検知ログ</h2>
+          </div>
+          <p class="hint">最新20件を表示します。速度は概算です。</p>
+        </div>
+        <div class="event-log-shell">
+          <table class="event-log-table">
+            <thead>
+              <tr>
+                <th>時刻</th>
+                <th>ID</th>
+                <th>速度</th>
+                <th>中心座標</th>
+              </tr>
+            </thead>
+            <tbody id="event-log-body">
+              <tr>
+                <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-header">
+          <div>
             <p class="panel-label">ROI</p>
             <h2>ROI設定</h2>
           </div>

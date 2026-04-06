@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 import base64
+from collections import deque
+from datetime import datetime
+from threading import Lock
+import time
 from typing import Any
 
 import cv2
@@ -13,6 +17,9 @@ from speed_estimator_core import SpeedEstimator
 
 app = Flask(__name__)
 config_manager = ConfigManager()
+recent_events: deque[dict[str, Any]] = deque(maxlen=20)
+recent_events_lock = Lock()
+last_event_by_track: dict[int, dict[str, float]] = {}
 
 
 def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
@@ -20,6 +27,36 @@ def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
     camera = CameraManager(config)
     camera.start()
     return camera, config
+
+
+def _remember_events(events: list[dict[str, Any]]) -> None:
+    now = time.time()
+    with recent_events_lock:
+        for event in events:
+            speed_kmh = float(event.get("speed_kmh", 0.0))
+            if speed_kmh <= 0.1:
+                continue
+
+            track_id = int(event["id"])
+            previous = last_event_by_track.get(track_id)
+            if previous is not None:
+                seconds_since_last = now - previous["timestamp"]
+                speed_delta = abs(speed_kmh - previous["speed_kmh"])
+                if seconds_since_last < 0.8 and speed_delta < 2.0:
+                    continue
+
+            center_x, center_y = event["centroid"]
+            recent_events.appendleft(
+                {
+                    "timestamp": now,
+                    "timestamp_label": datetime.fromtimestamp(now).strftime("%H:%M:%S"),
+                    "id": track_id,
+                    "speed_kmh": round(speed_kmh, 1),
+                    "center_x": round(float(center_x), 1),
+                    "center_y": round(float(center_y), 1),
+                }
+            )
+            last_event_by_track[track_id] = {"timestamp": now, "speed_kmh": speed_kmh}
 
 
 @app.get("/")
@@ -30,6 +67,12 @@ def index() -> str:
 @app.get("/api/config")
 def get_config() -> Response:
     return jsonify(config_manager.load())
+
+
+@app.get("/api/recent-events")
+def get_recent_events() -> Response:
+    with recent_events_lock:
+        return jsonify({"events": list(recent_events)})
 
 
 @app.post("/api/config")
@@ -120,7 +163,8 @@ def stream() -> Response:
                 ok, frame = camera.read()
                 if not ok or frame is None:
                     break
-                annotated, _ = estimator.process(frame)
+                annotated, events = estimator.process(frame)
+                _remember_events(events)
                 success, buffer = cv2.imencode(".jpg", annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
                 if not success:
                     continue
