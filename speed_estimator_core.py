@@ -18,6 +18,7 @@ class Track:
     timestamp: float
     missed_frames: int = 0
     speed_kmh: float = 0.0
+    speed_px_s: float = 0.0
     history: list[tuple[float, float, float]] = field(default_factory=list)
 
 
@@ -165,11 +166,12 @@ class SpeedEstimator:
                 self.tracks[track.track_id] = track
                 self.next_track_id += 1
             else:
-                speed = self._estimate_speed(track, detection["centroid"], now)
+                speed_kmh, speed_px_s = self._estimate_speed(track, detection["centroid"], now)
                 track.centroid = detection["centroid"]
                 track.timestamp = now
                 track.missed_frames = 0
-                track.speed_kmh = speed
+                track.speed_kmh = speed_kmh
+                track.speed_px_s = speed_px_s
                 track.history.append((detection["centroid"][0], detection["centroid"][1], now))
                 track.history = track.history[-6:]
 
@@ -179,6 +181,8 @@ class SpeedEstimator:
                 "bbox": detection["bbox"],
                 "centroid": track.centroid,
                 "speed_kmh": track.speed_kmh,
+                "speed_px_s": track.speed_px_s,
+                "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
             }
             events.append(event)
             self._log_event(event, now)
@@ -193,22 +197,23 @@ class SpeedEstimator:
 
     def _estimate_speed(
         self, track: Track, new_centroid: tuple[float, float], now: float
-    ) -> float:
-        if self.scale_ppm <= 0:
-            return 0.0
-
+    ) -> tuple[float, float]:
         dt = now - track.timestamp
         if dt <= 0:
-            return track.speed_kmh
+            return track.speed_kmh, track.speed_px_s
 
         dx = new_centroid[0] - track.centroid[0]
         dy = new_centroid[1] - track.centroid[1]
         distance_pixels = math.hypot(dx, dy)
+        speed_px_s = distance_pixels / dt
+        if self.scale_ppm <= 0:
+            return 0.0, speed_px_s
+
         meters = distance_pixels / self.scale_ppm
         kmh = meters / dt * 3.6
         if kmh > self.max_speed_kmh:
-            return track.speed_kmh
-        return kmh
+            return track.speed_kmh, track.speed_px_s
+        return kmh, speed_px_s
 
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:
         nearest: Track | None = None
@@ -240,7 +245,7 @@ class SpeedEstimator:
         for event in events:
             x, y, w, h = event["bbox"]
             cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 220, 0), 2)
-            label = f"ID {event['id']} {event['speed_kmh']:.1f} km/h"
+            label = f"ID {event['id']} {event['speed_label']}"
             cv2.putText(
                 annotated,
                 label,
@@ -261,7 +266,8 @@ class SpeedEstimator:
         if self.debug_mode:
             debug_text = (
                 f"debug min={self.min_contour_area} max={self.max_contour_area} "
-                f"thr={self.effective_threshold_value} blue={'on' if self.exclude_blue_floor else 'off'}"
+                f"thr={self.effective_threshold_value} blue={'on' if self.exclude_blue_floor else 'off'} "
+                f"ppm={'set' if self.scale_ppm > 0 else 'unset'}"
             )
             cv2.putText(
                 annotated,
@@ -306,6 +312,11 @@ class SpeedEstimator:
             [f"{timestamp:.3f}", event["id"], f"{event['speed_kmh']:.3f}", center_x, center_y]
         )
         self.csv_handle.flush()
+
+    def _format_speed_label(self, speed_kmh: float, speed_px_s: float) -> str:
+        if self.scale_ppm > 0:
+            return f"{speed_kmh:.1f} km/h"
+        return f"{speed_px_s:.1f} px/s"
 
     def _as_matrix(self, values: Any) -> np.ndarray | None:
         if values is None:

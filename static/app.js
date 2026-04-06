@@ -213,7 +213,7 @@ function renderRecentEvents(events) {
         <tr>
           <td>${event.timestamp_label}</td>
           <td>${event.id}</td>
-          <td>${Number(event.speed_kmh).toFixed(1)} km/h</td>
+          <td>${event.speed_label}</td>
           <td>${event.center_x}, ${event.center_y}</td>
         </tr>
       `,
