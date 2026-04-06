@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 from collections import deque
 from datetime import datetime
+import logging
 from threading import Lock
 import time
 from typing import Any
@@ -22,6 +23,15 @@ recent_events_lock = Lock()
 last_event_by_track: dict[int, dict[str, float]] = {}
 latest_snapshot_jpeg: bytes | None = None
 latest_snapshot_lock = Lock()
+
+
+class SuppressRecentEventsFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        message = record.getMessage()
+        return "/api/recent-events" not in message
+
+
+logging.getLogger("werkzeug").addFilter(SuppressRecentEventsFilter())
 
 
 def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
@@ -163,10 +173,7 @@ def snapshot() -> Response:
         return (
             jsonify(
                 {
-                    "error": (
-                        "カメラを開けませんでした。ライブ表示が動いていない場合は "
-                        "camera.type と device を確認してください。"
-                    ),
+                    "error": "Camera open failed. Check camera.type and device.",
                     "details": str(exc),
                 }
             ),

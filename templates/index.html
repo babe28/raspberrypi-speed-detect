@@ -8,38 +8,30 @@
 </head>
 <body>
   <main class="layout">
-    <section class="hero">
-      <div class="hero-copy">
+    <header class="topbar panel">
+      <div>
         <p class="eyebrow">Soapbox Speed Camera</p>
-        <h1>ブラウザ設定コンソール</h1>
-        <p class="lead">
-          カメラ設定、ROI、多角形座標、4点Perspective、スケール校正を
-          1画面で管理できます。作業時はスナップショットを取り、右側のツールで
-          点をクリックしていく運用を想定しています。
-        </p>
-        <div class="hero-actions">
-          <button id="reload-config" type="button">設定を再読込</button>
-          <button id="save-config" type="button">基本設定を保存</button>
-          <button id="take-snapshot" type="button">スナップショット取得</button>
-        </div>
-        <p id="status" class="status"></p>
+        <h1>調整コンソール</h1>
+        <p class="lead">スナップショット編集、検知ログ、画像処理チューニングを1画面に集約しています。</p>
       </div>
-      <div class="hero-stream panel">
-        <p class="panel-label">ライブ確認</p>
-        <img class="stream" src="/stream" alt="Live stream">
+      <div class="topbar-actions">
+        <button id="reload-config" type="button" class="ghost">再読込</button>
+        <button id="save-config" type="button">基本設定を保存</button>
+        <button id="take-snapshot" type="button">スナップショット取得</button>
       </div>
-    </section>
+      <p id="status" class="status"></p>
+    </header>
 
     <section class="workspace">
       <article class="panel canvas-panel">
         <div class="panel-header">
           <div>
-            <p class="panel-label">Calibration Workspace</p>
+            <p class="panel-label">Editor</p>
             <h2>スナップショット編集</h2>
           </div>
           <div class="mini-actions">
             <button id="clear-current-points" type="button" class="ghost">現在の点をクリア</button>
-            <button id="clear-all-overlays" type="button" class="ghost">オーバーレイを全消去</button>
+            <button id="clear-all-overlays" type="button" class="ghost">全消去</button>
           </div>
         </div>
 
@@ -47,149 +39,212 @@
           <canvas id="snapshot-canvas" width="1280" height="720"></canvas>
           <div class="canvas-overlay">
             <p id="mode-badge" class="mode-badge">モード未選択</p>
-            <p class="canvas-help">
-              Snapshot取得後にモードを選び、画像上をクリックしてください。
-            </p>
+            <p class="canvas-help">スナップショット取得後にモードを選び、画像上をクリックします。</p>
           </div>
         </div>
 
-        <div class="tool-grid">
-          <button id="mode-roi" type="button" class="mode-button">ROIを打つ</button>
-          <button id="mode-perspective" type="button" class="mode-button">Perspective 4点</button>
-          <button id="mode-scale" type="button" class="mode-button">スケール2点</button>
-          <button id="mode-pan" type="button" class="mode-button ghost">閲覧モード</button>
-        </div>
-
-        <div class="point-summary">
-          <div>
-            <p class="summary-label">ROI</p>
-            <p id="roi-count" class="summary-value">0点</p>
+        <div class="editor-toolbar">
+          <div class="tool-grid">
+            <button id="mode-roi" type="button" class="mode-button">ROI</button>
+            <button id="mode-perspective" type="button" class="mode-button">Perspective</button>
+            <button id="mode-scale" type="button" class="mode-button">Scale</button>
+            <button id="mode-pan" type="button" class="mode-button ghost">閲覧</button>
           </div>
-          <div>
-            <p class="summary-label">Perspective</p>
-            <p id="perspective-count" class="summary-value">0 / 4点</p>
-          </div>
-          <div>
-            <p class="summary-label">Scale</p>
-            <p id="scale-count" class="summary-value">0 / 2点</p>
+          <div class="point-summary">
+            <div>
+              <p class="summary-label">ROI</p>
+              <p id="roi-count" class="summary-value">0点</p>
+            </div>
+            <div>
+              <p class="summary-label">Perspective</p>
+              <p id="perspective-count" class="summary-value">0 / 4点</p>
+            </div>
+            <div>
+              <p class="summary-label">Scale</p>
+              <p id="scale-count" class="summary-value">0 / 2点</p>
+            </div>
           </div>
         </div>
       </article>
 
-      <aside class="settings">
-        <article class="panel">
+      <aside class="sidebar">
+        <article class="panel compact-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Live</p>
+              <h2>ライブ</h2>
+            </div>
+            <span class="pill">/stream</span>
+          </div>
+          <img class="stream" src="/stream" alt="Live stream">
+        </article>
+
+        <article class="panel compact-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Detections</p>
+              <h2>最新ログ</h2>
+            </div>
+            <span class="pill">最大20件</span>
+          </div>
+          <div class="event-log-shell">
+            <table class="event-log-table">
+              <thead>
+                <tr>
+                  <th>時刻</th>
+                  <th>ID</th>
+                  <th>速度</th>
+                  <th>座標</th>
+                </tr>
+              </thead>
+              <tbody id="event-log-body">
+                <tr>
+                  <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+
+        <article class="panel compact-panel">
           <p class="panel-label">Camera</p>
           <h2>カメラ</h2>
-          <label>種別
-            <select id="camera-type">
-              <option value="usb">USB</option>
-              <option value="csi">CSI</option>
-            </select>
-          </label>
-          <label>デバイス
-            <input id="camera-device" type="number" min="0" step="1">
-          </label>
-          <div class="two-column">
+          <div class="form-grid two">
+            <label>種別
+              <select id="camera-type">
+                <option value="usb">USB</option>
+                <option value="csi">CSI</option>
+              </select>
+            </label>
+            <label>デバイス
+              <input id="camera-device" type="number" min="0" step="1">
+            </label>
             <label>幅
               <input id="camera-width" type="number" min="1" step="1">
             </label>
             <label>高さ
               <input id="camera-height" type="number" min="1" step="1">
             </label>
+            <label>FPS
+              <input id="camera-fps" type="number" min="1" step="1">
+            </label>
+            <label>ダウンスケール
+              <input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1">
+            </label>
           </div>
-          <label>FPS
-            <input id="camera-fps" type="number" min="1" step="1">
-          </label>
         </article>
 
-        <article class="panel">
+        <article class="panel compact-panel">
           <p class="panel-label">Processing</p>
-          <h2>処理</h2>
-          <label>ダウンスケール
-            <input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1">
-          </label>
-          <label>最小輪郭面積
-            <input id="min-contour-area" type="number" min="1" step="1">
-          </label>
-          <label>最大速度 km/h
-            <input id="max-speed-kmh" type="number" min="1" step="0.1">
-          </label>
-          <label>ウォームアップフレーム数
-            <input id="warmup-frames" type="number" min="0" step="1">
-          </label>
+          <h2>検知チューニング</h2>
+          <div class="toggle-row">
+            <label class="inline compact">
+              <input id="debug-mode" type="checkbox">
+              デバッグモード
+            </label>
+            <label class="inline compact">
+              <input id="exclude-blue-floor" type="checkbox">
+              青床を除外
+            </label>
+          </div>
+          <div class="form-grid two">
+            <label>最小輪郭面積
+              <input id="min-contour-area" type="number" min="1" step="1">
+            </label>
+            <label>最大輪郭面積
+              <input id="max-contour-area" type="number" min="1" step="1">
+            </label>
+            <label>二値化しきい値
+              <input id="threshold-value" type="number" min="1" max="255" step="1">
+            </label>
+            <label>最大速度 km/h
+              <input id="max-speed-kmh" type="number" min="1" step="0.1">
+            </label>
+            <label>背景履歴
+              <input id="background-history" type="number" min="1" step="1">
+            </label>
+            <label>背景差分しきい値
+              <input id="background-var-threshold" type="number" min="1" step="1">
+            </label>
+            <label>ブラー
+              <input id="blur-kernel-size" type="number" min="1" step="2">
+            </label>
+            <label>モルフォロジー核
+              <input id="morph-kernel-size" type="number" min="1" step="2">
+            </label>
+            <label>Open回数
+              <input id="open-iterations" type="number" min="0" step="1">
+            </label>
+            <label>Dilate回数
+              <input id="dilate-iterations" type="number" min="0" step="1">
+            </label>
+            <label>追跡距離
+              <input id="track-max-distance" type="number" min="1" step="1">
+            </label>
+            <label>見失い許容フレーム
+              <input id="track-max-missing-frames" type="number" min="1" step="1">
+            </label>
+            <label>ウォームアップ
+              <input id="warmup-frames" type="number" min="0" step="1">
+            </label>
+          </div>
+          <details class="details-box">
+            <summary>青床除外 HSV</summary>
+            <div class="form-grid three">
+              <label>H low
+                <input id="blue-h-low" type="number" min="0" max="255" step="1">
+              </label>
+              <label>S low
+                <input id="blue-s-low" type="number" min="0" max="255" step="1">
+              </label>
+              <label>V low
+                <input id="blue-v-low" type="number" min="0" max="255" step="1">
+              </label>
+              <label>H high
+                <input id="blue-h-high" type="number" min="0" max="255" step="1">
+              </label>
+              <label>S high
+                <input id="blue-s-high" type="number" min="0" max="255" step="1">
+              </label>
+              <label>V high
+                <input id="blue-v-high" type="number" min="0" max="255" step="1">
+              </label>
+            </div>
+          </details>
         </article>
 
-        <article class="panel">
-          <p class="panel-label">Scale</p>
-          <h2>スケール</h2>
-          <label>既知距離 m
-            <input id="known-distance" type="number" min="0.01" step="0.01">
-          </label>
-          <label>2点 JSON
-            <input id="scale-points" type="text" placeholder="[[100,100],[400,100]]">
-          </label>
-          <div class="stack-actions">
+        <article class="panel compact-panel">
+          <p class="panel-label">Calibration</p>
+          <h2>キャリブレーション</h2>
+          <details class="details-box" open>
+            <summary>ROI</summary>
+            <label class="inline compact">
+              <input id="roi-enabled" type="checkbox">
+              ROIを有効化
+            </label>
+            <textarea id="roi-polygon" rows="4"></textarea>
+          </details>
+          <details class="details-box" open>
+            <summary>Perspective</summary>
+            <p class="hint">順序: 左上 → 右上 → 右下 → 左下</p>
+            <textarea id="perspective-points" rows="3"></textarea>
+            <button id="save-perspective" type="button">Perspectiveを保存</button>
+          </details>
+          <details class="details-box" open>
+            <summary>Scale</summary>
+            <div class="form-grid two">
+              <label>既知距離 m
+                <input id="known-distance" type="number" min="0.01" step="0.01">
+              </label>
+              <label>2点 JSON
+                <input id="scale-points" type="text" placeholder="[[100,100],[400,100]]">
+              </label>
+            </div>
             <button id="save-scale" type="button">スケールを計算</button>
-          </div>
-          <p id="ppm-view" class="ppm"></p>
+            <p id="ppm-view" class="ppm"></p>
+          </details>
         </article>
       </aside>
-    </section>
-
-    <section class="grid">
-      <article class="panel wide">
-        <div class="panel-header">
-          <div>
-            <p class="panel-label">Detections</p>
-            <h2>最新検知ログ</h2>
-          </div>
-          <p class="hint">最新20件を表示します。速度は概算です。</p>
-        </div>
-        <div class="event-log-shell">
-          <table class="event-log-table">
-            <thead>
-              <tr>
-                <th>時刻</th>
-                <th>ID</th>
-                <th>速度</th>
-                <th>中心座標</th>
-              </tr>
-            </thead>
-            <tbody id="event-log-body">
-              <tr>
-                <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </article>
-
-      <article class="panel wide">
-        <div class="panel-header">
-          <div>
-            <p class="panel-label">ROI</p>
-            <h2>ROI設定</h2>
-          </div>
-          <label class="inline compact">
-            <input id="roi-enabled" type="checkbox">
-            ROIを有効化
-          </label>
-        </div>
-        <p class="hint">多角形の頂点をクリック順に追加します。3点以上で有効です。</p>
-        <textarea id="roi-polygon" rows="4"></textarea>
-      </article>
-
-      <article class="panel wide">
-        <div class="panel-header">
-          <div>
-            <p class="panel-label">Perspective</p>
-            <h2>Perspective 4点</h2>
-          </div>
-          <button id="save-perspective" type="button">Perspectiveを保存</button>
-        </div>
-        <p class="hint">順序は 左上 → 右上 → 右下 → 左下 です。</p>
-        <textarea id="perspective-points" rows="3"></textarea>
-      </article>
     </section>
   </main>
 

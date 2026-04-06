@@ -31,12 +31,22 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "processing": {
         "downscale_factor": 0.5,
         "min_contour_area": 500,
+        "max_contour_area": 50000,
         "max_speed_kmh": 50.0,
         "warmup_frames": 15,
         "background_history": 300,
         "background_var_threshold": 32,
+        "threshold_value": 180,
+        "blur_kernel_size": 5,
+        "morph_kernel_size": 3,
+        "open_iterations": 1,
+        "dilate_iterations": 2,
         "track_max_distance": 80,
         "track_max_missing_frames": 8,
+        "debug_mode": False,
+        "exclude_blue_floor": False,
+        "blue_hsv_low": [90, 50, 40],
+        "blue_hsv_high": [135, 255, 255],
     },
     "logging": {
         "enable_csv": True,
@@ -118,15 +128,39 @@ class ConfigManager:
         processing = config["processing"]
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
+        processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
         processing["max_speed_kmh"] = float(processing.get("max_speed_kmh", 50.0))
         processing["warmup_frames"] = int(processing.get("warmup_frames", 15))
         processing["background_history"] = int(processing.get("background_history", 300))
         processing["background_var_threshold"] = int(
             processing.get("background_var_threshold", 32)
         )
+        processing["threshold_value"] = int(processing.get("threshold_value", 180))
+        processing["blur_kernel_size"] = self._normalize_odd_int(
+            processing.get("blur_kernel_size", 5),
+            default=5,
+            minimum=1,
+        )
+        processing["morph_kernel_size"] = self._normalize_odd_int(
+            processing.get("morph_kernel_size", 3),
+            default=3,
+            minimum=1,
+        )
+        processing["open_iterations"] = int(processing.get("open_iterations", 1))
+        processing["dilate_iterations"] = int(processing.get("dilate_iterations", 2))
         processing["track_max_distance"] = float(processing.get("track_max_distance", 80))
         processing["track_max_missing_frames"] = int(
             processing.get("track_max_missing_frames", 8)
+        )
+        processing["debug_mode"] = bool(processing.get("debug_mode", False))
+        processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))
+        processing["blue_hsv_low"] = self._normalize_hsv_triplet(
+            processing.get("blue_hsv_low", [90, 50, 40]),
+            [90, 50, 40],
+        )
+        processing["blue_hsv_high"] = self._normalize_hsv_triplet(
+            processing.get("blue_hsv_high", [135, 255, 255]),
+            [135, 255, 255],
         )
 
         logging_cfg = config["logging"]
@@ -155,3 +189,17 @@ class ConfigManager:
         if isinstance(vector, list):
             return [float(value) for value in vector]
         return None
+
+    def _normalize_odd_int(self, value: Any, default: int, minimum: int = 1) -> int:
+        try:
+            normalized = max(int(value), minimum)
+        except (TypeError, ValueError):
+            normalized = default
+        if normalized % 2 == 0:
+            normalized += 1
+        return normalized
+
+    def _normalize_hsv_triplet(self, value: Any, default: list[int]) -> list[int]:
+        if not isinstance(value, list) or len(value) != 3:
+            return default
+        return [int(max(0, min(component, 255))) for component in value]

@@ -28,12 +28,30 @@
   "processing": {
     "downscale_factor": 0.5,
     "min_contour_area": 500,
+    "max_contour_area": 50000,
     "max_speed_kmh": 50.0,
     "warmup_frames": 15,
     "background_history": 300,
     "background_var_threshold": 32,
+    "threshold_value": 180,
+    "blur_kernel_size": 5,
+    "morph_kernel_size": 3,
+    "open_iterations": 1,
+    "dilate_iterations": 2,
     "track_max_distance": 80,
-    "track_max_missing_frames": 8
+    "track_max_missing_frames": 8,
+    "debug_mode": false,
+    "exclude_blue_floor": false,
+    "blue_hsv_low": [
+      90,
+      50,
+      40
+    ],
+    "blue_hsv_high": [
+      135,
+      255,
+      255
+    ]
   },
   "logging": {
     "enable_csv": true,

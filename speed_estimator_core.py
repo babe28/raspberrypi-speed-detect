@@ -28,9 +28,28 @@ class SpeedEstimator:
         self.scale_ppm = float(config["scale"]["ppm"])
         self.max_speed_kmh = float(processing["max_speed_kmh"])
         self.min_contour_area = int(processing["min_contour_area"])
+        self.max_contour_area = int(processing["max_contour_area"])
         self.track_max_distance = float(processing["track_max_distance"])
         self.track_max_missing_frames = int(processing["track_max_missing_frames"])
         self.warmup_frames = int(processing["warmup_frames"])
+        self.threshold_value = int(processing["threshold_value"])
+        self.blur_kernel_size = int(processing["blur_kernel_size"])
+        self.morph_kernel_size = int(processing["morph_kernel_size"])
+        self.open_iterations = int(processing["open_iterations"])
+        self.dilate_iterations = int(processing["dilate_iterations"])
+        self.debug_mode = bool(processing["debug_mode"])
+        self.exclude_blue_floor = bool(processing["exclude_blue_floor"])
+        self.blue_hsv_low = np.array(processing["blue_hsv_low"], dtype=np.uint8)
+        self.blue_hsv_high = np.array(processing["blue_hsv_high"], dtype=np.uint8)
+        self.effective_min_contour_area = (
+            max(25, int(self.min_contour_area * 0.35)) if self.debug_mode else self.min_contour_area
+        )
+        self.effective_track_max_distance = (
+            self.track_max_distance * 1.35 if self.debug_mode else self.track_max_distance
+        )
+        self.effective_threshold_value = (
+            max(80, int(self.threshold_value * 0.85)) if self.debug_mode else self.threshold_value
+        )
         self.frame_index = 0
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2(
             history=int(processing["background_history"]),
@@ -79,17 +98,31 @@ class SpeedEstimator:
 
     def _motion_mask(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if self.blur_kernel_size > 1:
+            gray = cv2.GaussianBlur(gray, (self.blur_kernel_size, self.blur_kernel_size), 0)
         fg_mask = self.background_subtractor.apply(gray)
 
         if self.roi_mask is None or self.roi_mask.shape != fg_mask.shape:
             self.roi_mask = self._build_roi_mask(fg_mask.shape)
 
         fg_mask = cv2.bitwise_and(fg_mask, fg_mask, mask=self.roi_mask)
-        _, fg_mask = cv2.threshold(fg_mask, 180, 255, cv2.THRESH_BINARY)
-        fg_mask = cv2.medianBlur(fg_mask, 5)
-        kernel = np.ones((3, 3), np.uint8)
-        fg_mask = cv2.morphologyEx(fg_mask, cv2.MORPH_OPEN, kernel, iterations=1)
-        fg_mask = cv2.dilate(fg_mask, kernel, iterations=2)
+        if self.exclude_blue_floor:
+            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+            blue_mask = cv2.inRange(hsv, self.blue_hsv_low, self.blue_hsv_high)
+            fg_mask = cv2.bitwise_and(fg_mask, cv2.bitwise_not(blue_mask))
+
+        _, fg_mask = cv2.threshold(
+            fg_mask, self.effective_threshold_value, 255, cv2.THRESH_BINARY
+        )
+        fg_mask = cv2.medianBlur(fg_mask, self.blur_kernel_size)
+        kernel = np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
+        fg_mask = cv2.morphologyEx(
+            fg_mask,
+            cv2.MORPH_OPEN,
+            kernel,
+            iterations=self.open_iterations,
+        )
+        fg_mask = cv2.dilate(fg_mask, kernel, iterations=self.dilate_iterations)
         return fg_mask
 
     def _find_detections(self, mask: np.ndarray) -> list[dict[str, Any]]:
@@ -98,7 +131,9 @@ class SpeedEstimator:
 
         for contour in contours:
             area = cv2.contourArea(contour)
-            if area < self.min_contour_area:
+            if area < self.effective_min_contour_area:
+                continue
+            if area > self.max_contour_area:
                 continue
 
             x, y, w, h = cv2.boundingRect(contour)
@@ -177,7 +212,7 @@ class SpeedEstimator:
 
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:
         nearest: Track | None = None
-        nearest_distance = self.track_max_distance
+        nearest_distance = self.effective_track_max_distance
 
         for track in self.tracks.values():
             distance = math.hypot(track.centroid[0] - centroid[0], track.centroid[1] - centroid[1])
@@ -218,10 +253,26 @@ class SpeedEstimator:
             )
 
         mask_preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        preview_h = max(1, annotated.shape[0] // 4)
-        preview_w = max(1, annotated.shape[1] // 4)
+        preview_scale = 3 if self.debug_mode else 4
+        preview_h = max(1, annotated.shape[0] // preview_scale)
+        preview_w = max(1, annotated.shape[1] // preview_scale)
         mask_preview = cv2.resize(mask_preview, (preview_w, preview_h))
         annotated[:preview_h, :preview_w] = mask_preview
+        if self.debug_mode:
+            debug_text = (
+                f"debug min={self.min_contour_area} max={self.max_contour_area} "
+                f"thr={self.effective_threshold_value} blue={'on' if self.exclude_blue_floor else 'off'}"
+            )
+            cv2.putText(
+                annotated,
+                debug_text,
+                (12, annotated.shape[0] - 16),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.55,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
         return annotated
 
     def _build_roi_mask(self, shape: tuple[int, int]) -> np.ndarray:
