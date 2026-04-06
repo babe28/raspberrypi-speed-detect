@@ -20,14 +20,30 @@ class Track:
     speed_kmh: float = 0.0
     speed_px_s: float = 0.0
     history: list[tuple[float, float, float]] = field(default_factory=list)
+    crossed_lines: dict[str, float] = field(default_factory=dict)
+
+
+@dataclass
+class OverlayMeasurement:
+    label: str
+    centroid: tuple[float, float]
+    expires_at: float
+    track_id: int
 
 
 class SpeedEstimator:
     def __init__(self, config: dict[str, Any]) -> None:
         self.config = config
         processing = config["processing"]
+        measurement = config["measurement"]
         self.scale_ppm = float(config["scale"]["ppm"])
         self.max_speed_kmh = float(processing["max_speed_kmh"])
+        self.measurement_mode = str(measurement["mode"])
+        self.overlay_hold_seconds = float(measurement["overlay_hold_seconds"])
+        self.line_crossing = measurement["line_crossing"]
+        self.line_a = self._as_points(self.line_crossing["line_a"])
+        self.line_b = self._as_points(self.line_crossing["line_b"])
+        self.line_distance_m = float(self.line_crossing["distance_m"])
         self.min_contour_area = int(processing["min_contour_area"])
         self.max_contour_area = int(processing["max_contour_area"])
         self.track_max_distance = float(processing["track_max_distance"])
@@ -62,6 +78,7 @@ class SpeedEstimator:
         self.camera_matrix = self._as_matrix(config["calibration"]["camera_matrix"])
         self.dist_coeffs = self._as_vector(config["calibration"]["dist_coeffs"])
         self.tracks: dict[int, Track] = {}
+        self.active_measurements: list[OverlayMeasurement] = []
         self.next_track_id = 1
         self.csv_writer: csv.writer | None = None
         self.csv_handle = None
@@ -71,6 +88,7 @@ class SpeedEstimator:
         corrected = self._apply_corrections(frame)
         mask = self._motion_mask(corrected)
         self.frame_index += 1
+        self._prune_measurements()
         if self.frame_index <= self.warmup_frames:
             annotated = self._annotate(corrected, mask, [])
             return annotated, []
@@ -166,6 +184,7 @@ class SpeedEstimator:
                 self.tracks[track.track_id] = track
                 self.next_track_id += 1
             else:
+                previous_centroid = track.centroid
                 speed_kmh, speed_px_s = self._estimate_speed(track, detection["centroid"], now)
                 track.centroid = detection["centroid"]
                 track.timestamp = now
@@ -174,18 +193,29 @@ class SpeedEstimator:
                 track.speed_px_s = speed_px_s
                 track.history.append((detection["centroid"][0], detection["centroid"][1], now))
                 track.history = track.history[-6:]
+                if self.measurement_mode == "line_crossing":
+                    measurement_event = self._maybe_measure_line_crossing(
+                        track,
+                        previous_centroid,
+                        detection["centroid"],
+                        now,
+                    )
+                    if measurement_event is not None:
+                        events.append(measurement_event)
+                        self._log_event(measurement_event, now)
 
             matched_track_ids.add(track.track_id)
-            event = {
-                "id": track.track_id,
-                "bbox": detection["bbox"],
-                "centroid": track.centroid,
-                "speed_kmh": track.speed_kmh,
-                "speed_px_s": track.speed_px_s,
-                "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
-            }
-            events.append(event)
-            self._log_event(event, now)
+            if self.measurement_mode == "tracking":
+                event = {
+                    "id": track.track_id,
+                    "bbox": detection["bbox"],
+                    "centroid": track.centroid,
+                    "speed_kmh": track.speed_kmh,
+                    "speed_px_s": track.speed_px_s,
+                    "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
+                }
+                events.append(event)
+                self._log_event(event, now)
 
         for track_id, track in list(self.tracks.items()):
             if track_id not in matched_track_ids:
@@ -194,6 +224,59 @@ class SpeedEstimator:
                     self.tracks.pop(track_id, None)
 
         return events
+
+    def _maybe_measure_line_crossing(
+        self,
+        track: Track,
+        previous_centroid: tuple[float, float],
+        current_centroid: tuple[float, float],
+        now: float,
+    ) -> dict[str, Any] | None:
+        if self.line_a is None or self.line_b is None or self.line_distance_m <= 0:
+            return None
+
+        crossed_a = self._segments_intersect(previous_centroid, current_centroid, *self.line_a)
+        crossed_b = self._segments_intersect(previous_centroid, current_centroid, *self.line_b)
+
+        if crossed_a:
+            track.crossed_lines["line_a"] = now
+
+        if crossed_b:
+            track.crossed_lines["line_b"] = now
+
+        line_a_time = track.crossed_lines.get("line_a")
+        line_b_time = track.crossed_lines.get("line_b")
+        if line_a_time is None or line_b_time is None:
+            return None
+
+        dt = abs(line_b_time - line_a_time)
+        if dt <= 0:
+            return None
+
+        speed_kmh = self.line_distance_m / dt * 3.6
+        if speed_kmh > self.max_speed_kmh:
+            return None
+
+        event = {
+            "id": track.track_id,
+            "bbox": self._bbox_from_centroid(current_centroid),
+            "centroid": current_centroid,
+            "speed_kmh": speed_kmh,
+            "speed_px_s": 0.0,
+            "speed_label": f"{speed_kmh:.1f} km/h",
+        }
+        self.active_measurements.append(
+            OverlayMeasurement(
+                label=event["speed_label"],
+                centroid=current_centroid,
+                expires_at=now + self.overlay_hold_seconds,
+                track_id=track.track_id,
+            )
+        )
+        track.crossed_lines.clear()
+        track.speed_kmh = speed_kmh
+        track.speed_px_s = 0.0
+        return event
 
     def _estimate_speed(
         self, track: Track, new_centroid: tuple[float, float], now: float
@@ -243,19 +326,23 @@ class SpeedEstimator:
             cv2.polylines(annotated, [pts], isClosed=True, color=(0, 255, 255), thickness=2)
 
         for event in events:
-            x, y, w, h = event["bbox"]
-            cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 220, 0), 2)
-            label = f"ID {event['id']} {event['speed_label']}"
-            cv2.putText(
-                annotated,
-                label,
-                (x, max(20, y - 8)),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (0, 220, 0),
-                2,
-                cv2.LINE_AA,
-            )
+            if self.measurement_mode == "tracking" or self.debug_mode:
+                x, y, w, h = event["bbox"]
+                cv2.rectangle(annotated, (x, y), (x + w, y + h), (0, 220, 0), 2)
+                label = f"ID {event['id']} {event['speed_label']}"
+                cv2.putText(
+                    annotated,
+                    label,
+                    (x, max(20, y - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 220, 0),
+                    2,
+                    cv2.LINE_AA,
+                )
+
+        self._draw_measurement_lines(annotated)
+        self._draw_active_measurements(annotated)
 
         mask_preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
         preview_scale = 3 if self.debug_mode else 4
@@ -291,6 +378,77 @@ class SpeedEstimator:
             cv2.fillPoly(mask, [pts], 255)
         return mask
 
+    def _draw_measurement_lines(self, frame: np.ndarray) -> None:
+        if self.line_a is not None:
+            cv2.line(
+                frame,
+                self._as_int_point(self.line_a[0]),
+                self._as_int_point(self.line_a[1]),
+                (255, 166, 0),
+                3,
+            )
+            cv2.putText(
+                frame,
+                "Line A",
+                self._as_int_point(self.line_a[0]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 166, 0),
+                2,
+                cv2.LINE_AA,
+            )
+        if self.line_b is not None:
+            cv2.line(
+                frame,
+                self._as_int_point(self.line_b[0]),
+                self._as_int_point(self.line_b[1]),
+                (255, 0, 170),
+                3,
+            )
+            cv2.putText(
+                frame,
+                "Line B",
+                self._as_int_point(self.line_b[0]),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.7,
+                (255, 0, 170),
+                2,
+                cv2.LINE_AA,
+            )
+
+    def _draw_active_measurements(self, frame: np.ndarray) -> None:
+        for measurement in self.active_measurements:
+            x, y = self._as_int_point(measurement.centroid)
+            text = f"ID {measurement.track_id} {measurement.label}"
+            cv2.putText(
+                frame,
+                text,
+                (max(10, x - 40), max(30, y - 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 255),
+                3,
+                cv2.LINE_AA,
+            )
+            cv2.putText(
+                frame,
+                text,
+                (max(10, x - 40), max(30, y - 20)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (20, 20, 20),
+                1,
+                cv2.LINE_AA,
+            )
+
+    def _prune_measurements(self) -> None:
+        now = time.time()
+        self.active_measurements = [
+            measurement
+            for measurement in self.active_measurements
+            if measurement.expires_at > now
+        ]
+
     def _setup_logging(self) -> None:
         logging_config = self.config["logging"]
         if not logging_config["enable_csv"]:
@@ -317,6 +475,31 @@ class SpeedEstimator:
         if self.scale_ppm > 0:
             return f"{speed_kmh:.1f} km/h"
         return f"{speed_px_s:.1f} px/s"
+
+    def _as_points(self, values: Any) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        if not isinstance(values, list) or len(values) != 2:
+            return None
+        return (tuple(values[0]), tuple(values[1]))
+
+    def _as_int_point(self, point: tuple[float, float]) -> tuple[int, int]:
+        return (int(point[0]), int(point[1]))
+
+    def _bbox_from_centroid(self, centroid: tuple[float, float]) -> tuple[int, int, int, int]:
+        x = int(centroid[0] - 12)
+        y = int(centroid[1] - 12)
+        return (x, y, 24, 24)
+
+    def _segments_intersect(
+        self,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        q1: tuple[float, float],
+        q2: tuple[float, float],
+    ) -> bool:
+        def ccw(a: tuple[float, float], b: tuple[float, float], c: tuple[float, float]) -> bool:
+            return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
+
+        return ccw(p1, q1, q2) != ccw(p2, q1, q2) and ccw(p1, p2, q1) != ccw(p1, p2, q2)
 
     def _as_matrix(self, values: Any) -> np.ndarray | None:
         if values is None:

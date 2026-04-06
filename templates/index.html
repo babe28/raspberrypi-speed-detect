@@ -49,6 +49,8 @@
               <button id="mode-roi" type="button" class="mode-button">ROI</button>
               <button id="mode-perspective" type="button" class="mode-button">Perspective</button>
               <button id="mode-scale" type="button" class="mode-button">Scale</button>
+              <button id="mode-line-a" type="button" class="mode-button">Line A</button>
+              <button id="mode-line-b" type="button" class="mode-button">Line B</button>
               <button id="mode-pan" type="button" class="mode-button ghost">閲覧</button>
             </div>
             <div class="point-summary">
@@ -63,6 +65,14 @@
               <div>
                 <p class="summary-label">Scale</p>
                 <p id="scale-count" class="summary-value">0 / 2点</p>
+              </div>
+              <div>
+                <p class="summary-label">Line A</p>
+                <p id="line-a-count" class="summary-value">0 / 2点</p>
+              </div>
+              <div>
+                <p class="summary-label">Line B</p>
+                <p id="line-b-count" class="summary-value">0 / 2点</p>
               </div>
             </div>
           </div>
@@ -104,6 +114,32 @@
               </div>
               <button id="save-scale" type="button">スケールを計算</button>
               <p id="ppm-view" class="ppm"></p>
+            </details>
+            <details class="details-box" open>
+              <summary>Speed Mode</summary>
+              <div class="form-grid two">
+                <label>速度モード
+                  <select id="measurement-mode">
+                    <option value="tracking">Tracking</option>
+                    <option value="line_crossing">Line Crossing</option>
+                  </select>
+                </label>
+                <label>表示保持 秒
+                  <input id="overlay-hold-seconds" type="number" min="1" max="30" step="1">
+                </label>
+                <label>Line間距離 m
+                  <input id="line-distance-m" type="number" min="0.01" step="0.01">
+                </label>
+              </div>
+              <p class="hint">Line Crossing は Line A と Line B の両方を通過したときだけ速度を確定します。</p>
+              <div class="form-grid two">
+                <label>Line A JSON
+                  <input id="line-a-points" type="text" placeholder="[[100,100],[300,100]]">
+                </label>
+                <label>Line B JSON
+                  <input id="line-b-points" type="text" placeholder="[[100,200],[300,200]]">
+                </label>
+              </div>
             </details>
           </div>
         </article>

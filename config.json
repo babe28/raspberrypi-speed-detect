@@ -25,6 +25,15 @@
     "pixel_distance": 0.0,
     "ppm": 0.0
   },
+  "measurement": {
+    "mode": "tracking",
+    "overlay_hold_seconds": 5.0,
+    "line_crossing": {
+      "line_a": [],
+      "line_b": [],
+      "distance_m": 2.0
+    }
+  },
   "processing": {
     "downscale_factor": 0.5,
     "min_contour_area": 500,

@@ -28,6 +28,15 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "pixel_distance": 0.0,
         "ppm": 0.0,
     },
+    "measurement": {
+        "mode": "tracking",
+        "overlay_hold_seconds": 5.0,
+        "line_crossing": {
+            "line_a": [],
+            "line_b": [],
+            "distance_m": 2.0,
+        },
+    },
     "processing": {
         "downscale_factor": 0.5,
         "min_contour_area": 500,
@@ -124,6 +133,18 @@ class ConfigManager:
         scale["known_distance_m"] = float(scale.get("known_distance_m", 2.0))
         scale["pixel_distance"] = float(scale.get("pixel_distance", 0.0))
         scale["ppm"] = float(scale.get("ppm", 0.0))
+
+        measurement = config["measurement"]
+        measurement["mode"] = str(measurement.get("mode", "tracking")).lower()
+        measurement["overlay_hold_seconds"] = float(
+            measurement.get("overlay_hold_seconds", 5.0)
+        )
+        line_crossing = measurement.get("line_crossing", {})
+        measurement["line_crossing"] = {
+            "line_a": [self._normalize_point(point) for point in line_crossing.get("line_a", [])],
+            "line_b": [self._normalize_point(point) for point in line_crossing.get("line_b", [])],
+            "distance_m": float(line_crossing.get("distance_m", scale["known_distance_m"] or 2.0)),
+        }
 
         processing = config["processing"]
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))

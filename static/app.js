@@ -6,6 +6,8 @@ const modeBadgeEl = document.getElementById("mode-badge");
 const roiCountEl = document.getElementById("roi-count");
 const perspectiveCountEl = document.getElementById("perspective-count");
 const scaleCountEl = document.getElementById("scale-count");
+const lineACountEl = document.getElementById("line-a-count");
+const lineBCountEl = document.getElementById("line-b-count");
 const eventLogBodyEl = document.getElementById("event-log-body");
 
 const state = {
@@ -16,6 +18,8 @@ const state = {
   roiPoints: [],
   perspectivePoints: [],
   scalePoints: [],
+  lineAPoints: [],
+  lineBPoints: [],
 };
 
 state.image.addEventListener("load", () => {
@@ -37,6 +41,8 @@ function setMode(mode) {
     roi: "ROI入力中",
     perspective: "Perspective入力中",
     scale: "スケール入力中",
+    lineA: "Line A 入力中",
+    lineB: "Line B 入力中",
   };
   modeBadgeEl.textContent = labels[mode] || "モード未選択";
   document.querySelectorAll(".mode-button").forEach((button) => {
@@ -76,18 +82,23 @@ function syncCounts() {
   roiCountEl.textContent = `${state.roiPoints.length}点`;
   perspectiveCountEl.textContent = `${state.perspectivePoints.length} / 4点`;
   scaleCountEl.textContent = `${state.scalePoints.length} / 2点`;
+  lineACountEl.textContent = `${state.lineAPoints.length} / 2点`;
+  lineBCountEl.textContent = `${state.lineBPoints.length} / 2点`;
 }
 
 function syncTextareas() {
   writeJson("roi-polygon", state.roiPoints.map(roundPoint));
   writeJson("perspective-points", state.perspectivePoints.map(roundPoint));
   writeJson("scale-points", state.scalePoints.map(roundPoint));
+  writeJson("line-a-points", state.lineAPoints.map(roundPoint));
+  writeJson("line-b-points", state.lineBPoints.map(roundPoint));
   syncCounts();
 }
 
 function fillForm(config) {
   state.config = config;
   const processing = config.processing;
+  const measurement = config.measurement;
 
   setValue("camera-type", config.camera.type);
   setValue("camera-device", config.camera.device);
@@ -109,6 +120,9 @@ function fillForm(config) {
   setValue("track-max-distance", processing.track_max_distance);
   setValue("track-max-missing-frames", processing.track_max_missing_frames);
   setValue("known-distance", config.scale.known_distance_m);
+  setValue("measurement-mode", measurement.mode);
+  setValue("overlay-hold-seconds", measurement.overlay_hold_seconds);
+  setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
@@ -125,6 +139,8 @@ function fillForm(config) {
   state.roiPoints = (config.roi.polygon || []).map((point) => [...point]);
   state.perspectivePoints = (config.perspective.src_points || []).map((point) => [...point]);
   state.scalePoints = [];
+  state.lineAPoints = (measurement.line_crossing.line_a || []).map((point) => [...point]);
+  state.lineBPoints = (measurement.line_crossing.line_b || []).map((point) => [...point]);
 
   if (config.scale.pixel_distance > 0 && config.scale.known_distance_m > 0) {
     const y = 120;
@@ -198,6 +214,10 @@ function drawCanvas() {
 
   drawLine(state.scalePoints, "#ff6b6b");
   state.scalePoints.forEach((point, index) => drawPoint(point, "#ff6b6b", `S${index + 1}`));
+  drawLine(state.lineAPoints, "#f7a600");
+  state.lineAPoints.forEach((point, index) => drawPoint(point, "#f7a600", `A${index + 1}`));
+  drawLine(state.lineBPoints, "#d94fff");
+  state.lineBPoints.forEach((point, index) => drawPoint(point, "#d94fff", `B${index + 1}`));
 }
 
 function renderRecentEvents(events) {
@@ -241,6 +261,16 @@ function addPoint(point) {
       state.scalePoints = [];
     }
     state.scalePoints.push(point);
+  } else if (state.mode === "lineA") {
+    if (state.lineAPoints.length >= 2) {
+      state.lineAPoints = [];
+    }
+    state.lineAPoints.push(point);
+  } else if (state.mode === "lineB") {
+    if (state.lineBPoints.length >= 2) {
+      state.lineBPoints = [];
+    }
+    state.lineBPoints.push(point);
   }
   syncTextareas();
   drawCanvas();
@@ -253,6 +283,10 @@ function clearCurrentModePoints() {
     state.perspectivePoints = [];
   } else if (state.mode === "scale") {
     state.scalePoints = [];
+  } else if (state.mode === "lineA") {
+    state.lineAPoints = [];
+  } else if (state.mode === "lineB") {
+    state.lineBPoints = [];
   }
   syncTextareas();
   drawCanvas();
@@ -262,6 +296,8 @@ function clearAllOverlays() {
   state.roiPoints = [];
   state.perspectivePoints = [];
   state.scalePoints = [];
+  state.lineAPoints = [];
+  state.lineBPoints = [];
   syncTextareas();
   drawCanvas();
 }
@@ -328,6 +364,18 @@ function buildProcessingPayload() {
   };
 }
 
+function buildMeasurementPayload() {
+  return {
+    mode: getValue("measurement-mode"),
+    overlay_hold_seconds: Number(getValue("overlay-hold-seconds")),
+    line_crossing: {
+      line_a: readJsonInput("line-a-points", []),
+      line_b: readJsonInput("line-b-points", []),
+      distance_m: Number(getValue("line-distance-m")),
+    },
+  };
+}
+
 async function saveConfig() {
   const payload = {
     camera: {
@@ -340,6 +388,7 @@ async function saveConfig() {
       enabled: getChecked("roi-enabled"),
       polygon: readJsonInput("roi-polygon", []),
     },
+    measurement: buildMeasurementPayload(),
     processing: buildProcessingPayload(),
   };
 
@@ -437,6 +486,8 @@ document.getElementById("clear-all-overlays").addEventListener("click", clearAll
 document.getElementById("mode-roi").dataset.mode = "roi";
 document.getElementById("mode-perspective").dataset.mode = "perspective";
 document.getElementById("mode-scale").dataset.mode = "scale";
+document.getElementById("mode-line-a").dataset.mode = "lineA";
+document.getElementById("mode-line-b").dataset.mode = "lineB";
 document.getElementById("mode-pan").dataset.mode = "pan";
 document.querySelectorAll(".mode-button").forEach((button) => {
   button.addEventListener("click", () => setMode(button.dataset.mode));
@@ -450,6 +501,12 @@ document.getElementById("perspective-points").addEventListener("change", () => {
 });
 document.getElementById("scale-points").addEventListener("change", () => {
   syncFromTextarea("scale-points", "scalePoints");
+});
+document.getElementById("line-a-points").addEventListener("change", () => {
+  syncFromTextarea("line-a-points", "lineAPoints");
+});
+document.getElementById("line-b-points").addEventListener("change", () => {
+  syncFromTextarea("line-b-points", "lineBPoints");
 });
 
 setMode("pan");
