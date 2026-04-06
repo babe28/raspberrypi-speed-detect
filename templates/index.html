@@ -205,6 +205,16 @@
           </div>
           <details class="details-box">
             <summary>青床除外 HSV</summary>
+            <div class="color-preview-wrap">
+              <div>
+                <p class="hint">Low</p>
+                <div id="blue-low-preview" class="color-preview"></div>
+              </div>
+              <div>
+                <p class="hint">High</p>
+                <div id="blue-high-preview" class="color-preview"></div>
+              </div>
+            </div>
             <div class="form-grid three">
               <label>H low
                 <input id="blue-h-low" type="number" min="0" max="255" step="1">
@@ -296,6 +306,57 @@
           </div>
         </article>
       </aside>
+    </section>
+
+    <section class="panel help-panel">
+      <div class="panel-header">
+        <div>
+          <p class="panel-label">Guide</p>
+          <h2>検知チューニングの見方</h2>
+        </div>
+      </div>
+      <div class="help-grid">
+        <article class="help-card">
+          <h3>最小輪郭 / 最大輪郭</h3>
+          <p>検知対象の大きさの下限と上限です。小さすぎるノイズや大きすぎる誤検知を除外します。</p>
+        </article>
+        <article class="help-card">
+          <h3>二値化</h3>
+          <p>背景差分後の白黒判定の強さです。下げると拾いやすく、上げると厳しくなります。</p>
+        </article>
+        <article class="help-card">
+          <h3>背景履歴 / 背景しきい値</h3>
+          <p>背景モデルの慣れ方です。履歴を大きくするとゆっくり適応し、しきい値を下げると小さな変化も拾います。</p>
+        </article>
+        <article class="help-card">
+          <h3>ブラー / モルフォ核</h3>
+          <p>ノイズ除去の強さです。ブラーは平滑化、モルフォ核は穴埋めや小粒ノイズ除去の効き方に関わります。</p>
+        </article>
+        <article class="help-card">
+          <h3>Open回数 / Dilate回数</h3>
+          <p>Open は小さなゴミを減らし、Dilate は検知領域を少し膨らませます。やりすぎると形が崩れます。</p>
+        </article>
+        <article class="help-card">
+          <h3>追跡距離 / 見失い許容</h3>
+          <p>前フレームの物体と同じものとみなす距離、および何フレーム見失っても追跡を維持するかです。</p>
+        </article>
+        <article class="help-card">
+          <h3>デバッグモード</h3>
+          <p>小さな物体を拾いやすくする調整です。ミニカー確認時に向いていますが、誤検知も増えやすくなります。</p>
+        </article>
+        <article class="help-card">
+          <h3>青床除外 HSV</h3>
+          <p>指定した青系の色範囲をマスクして、床を動体候補から外します。Low と High はその範囲の下限と上限です。</p>
+        </article>
+        <article class="help-card">
+          <h3>Line Crossing モード</h3>
+          <p>Line A と Line B を両方またいだときだけ速度を確定します。`distance_m` はその2本の実距離です。</p>
+        </article>
+        <article class="help-card">
+          <h3>ppm / px/s</h3>
+          <p>スケール未設定の間は `px/s` 表示になります。実速度を出すには Scale で2点と実距離を設定してください。</p>
+        </article>
+      </div>
     </section>
   </main>
 

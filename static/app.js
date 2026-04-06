@@ -9,6 +9,8 @@ const scaleCountEl = document.getElementById("scale-count");
 const lineACountEl = document.getElementById("line-a-count");
 const lineBCountEl = document.getElementById("line-b-count");
 const eventLogBodyEl = document.getElementById("event-log-body");
+const blueLowPreviewEl = document.getElementById("blue-low-preview");
+const blueHighPreviewEl = document.getElementById("blue-high-preview");
 
 const state = {
   config: null,
@@ -76,6 +78,22 @@ function setValue(id, value) {
 
 function getChecked(id) {
   return document.getElementById(id).checked;
+}
+
+function hsv255ToCss(h, s, v) {
+  const hue = Math.round((Number(h) / 255) * 360);
+  const sat = Math.max(0, Math.min(100, (Number(s) / 255) * 100));
+  const val = Math.max(0, Math.min(100, (Number(v) / 255) * 100));
+  return `hsl(${hue} ${sat}% ${Math.max(8, val)}%)`;
+}
+
+function updateBluePreviews() {
+  const lowColor = hsv255ToCss(getValue("blue-h-low"), getValue("blue-s-low"), getValue("blue-v-low"));
+  const highColor = hsv255ToCss(getValue("blue-h-high"), getValue("blue-s-high"), getValue("blue-v-high"));
+  blueLowPreviewEl.style.background = lowColor;
+  blueHighPreviewEl.style.background = highColor;
+  blueLowPreviewEl.textContent = lowColor;
+  blueHighPreviewEl.textContent = highColor;
 }
 
 function syncCounts() {
@@ -150,6 +168,7 @@ function fillForm(config) {
   syncTextareas();
   ppmViewEl.textContent = `ppm: ${Number(config.scale.ppm || 0).toFixed(2)}`;
   drawCanvas();
+  updateBluePreviews();
 }
 
 function drawPoint(point, color, label) {
@@ -507,6 +526,17 @@ document.getElementById("line-a-points").addEventListener("change", () => {
 });
 document.getElementById("line-b-points").addEventListener("change", () => {
   syncFromTextarea("line-b-points", "lineBPoints");
+});
+
+[
+  "blue-h-low",
+  "blue-s-low",
+  "blue-v-low",
+  "blue-h-high",
+  "blue-s-high",
+  "blue-v-high",
+].forEach((id) => {
+  document.getElementById(id).addEventListener("input", updateBluePreviews);
 });
 
 setMode("pan");
