@@ -46,8 +46,10 @@ class SpeedEstimator:
         self.repeat_behavior = str(measurement.get("repeat_behavior", "normal"))
         self.repeat_cooldown_seconds = float(measurement.get("repeat_cooldown_seconds", 0.0))
         self.line_crossing = measurement["line_crossing"]
-        self.line_a = self._as_points(self.line_crossing["line_a"])
-        self.line_b = self._as_points(self.line_crossing["line_b"])
+        self.display_line_a = self._as_points(self.line_crossing["line_a"])
+        self.display_line_b = self._as_points(self.line_crossing["line_b"])
+        self.line_a = self.display_line_a
+        self.line_b = self.display_line_b
         self.line_distance_m = float(self.line_crossing["distance_m"])
         self.min_contour_area = int(processing["min_contour_area"])
         self.max_contour_area = int(processing["max_contour_area"])
@@ -84,8 +86,13 @@ class SpeedEstimator:
         )
         self.roi_mask: np.ndarray | None = None
         self.homography_matrix = self._as_matrix(config["perspective"]["homography_matrix"])
+        self.inverse_homography_matrix = self._invert_matrix(self.homography_matrix)
         self.camera_matrix = self._as_matrix(config["calibration"]["camera_matrix"])
         self.dist_coeffs = self._as_vector(config["calibration"]["dist_coeffs"])
+        self.display_roi_points = self._as_polygon(config["roi"]["polygon"])
+        self.detect_roi_points = self.display_roi_points
+        self.display_perspective_points = self._as_polygon(config["perspective"]["src_points"])
+        self._configure_detection_geometry()
         self.tracks: dict[int, Track] = {}
         self.active_measurements: list[OverlayMeasurement] = []
         self.next_track_id = 1
@@ -94,16 +101,17 @@ class SpeedEstimator:
         self._setup_logging()
 
     def process(self, frame: np.ndarray) -> tuple[np.ndarray, list[dict[str, Any]]]:
-        corrected = self._apply_corrections(frame)
-        mask = self._motion_mask(corrected)
+        display_frame = self._apply_undistort(frame)
+        detection_frame = self._apply_perspective(display_frame)
+        mask = self._motion_mask(detection_frame)
         self.frame_index += 1
         self._prune_measurements()
         if self.frame_index <= self.warmup_frames:
-            annotated = self._annotate(corrected, mask, [])
+            annotated = self._annotate(display_frame, mask, [])
             return annotated, []
         detections = self._find_detections(mask)
         events = self._update_tracks(detections)
-        annotated = self._annotate(corrected, mask, events)
+        annotated = self._annotate(display_frame, mask, events)
         return annotated, events
 
     def close(self) -> None:
@@ -111,11 +119,14 @@ class SpeedEstimator:
             self.csv_handle.close()
             self.csv_handle = None
 
-    def _apply_corrections(self, frame: np.ndarray) -> np.ndarray:
+    def _apply_undistort(self, frame: np.ndarray) -> np.ndarray:
         corrected = frame.copy()
         if self.undistort_enabled and self.camera_matrix is not None and self.dist_coeffs is not None:
             corrected = cv2.undistort(corrected, self.camera_matrix, self.dist_coeffs)
+        return corrected
 
+    def _apply_perspective(self, frame: np.ndarray) -> np.ndarray:
+        corrected = frame.copy()
         if self.perspective_enabled and self.homography_matrix is not None:
             corrected = cv2.warpPerspective(
                 corrected,
@@ -363,19 +374,17 @@ class SpeedEstimator:
     ) -> np.ndarray:
         annotated = frame.copy()
 
-        roi_points = self.config["roi"]["polygon"]
-        if self.config["roi"]["enabled"] and len(roi_points) >= 3:
-            pts = np.array(roi_points, dtype=np.int32)
+        if self.config["roi"]["enabled"] and len(self.display_roi_points) >= 3:
+            pts = np.array(self.display_roi_points, dtype=np.int32)
             cv2.polylines(annotated, [pts], isClosed=True, color=(255, 255, 0), thickness=2)
 
-        perspective_points = self.config["perspective"]["src_points"]
-        if len(perspective_points) == 4:
-            pts = np.array(perspective_points, dtype=np.int32)
+        if len(self.display_perspective_points) == 4:
+            pts = np.array(self.display_perspective_points, dtype=np.int32)
             cv2.polylines(annotated, [pts], isClosed=True, color=(0, 255, 255), thickness=2)
 
         for event in events:
             if self.measurement_mode == "tracking" or self.debug_mode:
-                x, y, w, h = event["bbox"]
+                x, y, w, h = self._display_bbox(event["bbox"])
                 color = event.get("color", (0, 220, 0))
                 subdued = bool(event.get("subdued", False))
                 box_color = self._muted_color(color) if subdued else color
@@ -421,44 +430,43 @@ class SpeedEstimator:
     def _build_roi_mask(self, shape: tuple[int, int]) -> np.ndarray:
         height, width = shape
         mask = np.ones((height, width), dtype=np.uint8) * 255
-        roi_points = self.config["roi"]["polygon"]
-        if self.config["roi"]["enabled"] and len(roi_points) >= 3:
+        if self.config["roi"]["enabled"] and len(self.detect_roi_points) >= 3:
             mask = np.zeros((height, width), dtype=np.uint8)
-            pts = np.array(roi_points, dtype=np.int32)
+            pts = np.array(self.detect_roi_points, dtype=np.int32)
             cv2.fillPoly(mask, [pts], 255)
         return mask
 
     def _draw_measurement_lines(self, frame: np.ndarray) -> None:
-        if self.line_a is not None:
+        if self.display_line_a is not None:
             cv2.line(
                 frame,
-                self._as_int_point(self.line_a[0]),
-                self._as_int_point(self.line_a[1]),
+                self._as_int_point(self.display_line_a[0]),
+                self._as_int_point(self.display_line_a[1]),
                 (255, 166, 0),
                 3,
             )
             cv2.putText(
                 frame,
                 "Line A",
-                self._as_int_point(self.line_a[0]),
+                self._as_int_point(self.display_line_a[0]),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 166, 0),
                 2,
                 cv2.LINE_AA,
             )
-        if self.line_b is not None:
+        if self.display_line_b is not None:
             cv2.line(
                 frame,
-                self._as_int_point(self.line_b[0]),
-                self._as_int_point(self.line_b[1]),
+                self._as_int_point(self.display_line_b[0]),
+                self._as_int_point(self.display_line_b[1]),
                 (255, 0, 170),
                 3,
             )
             cv2.putText(
                 frame,
                 "Line B",
-                self._as_int_point(self.line_b[0]),
+                self._as_int_point(self.display_line_b[0]),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.7,
                 (255, 0, 170),
@@ -468,7 +476,7 @@ class SpeedEstimator:
 
     def _draw_active_measurements(self, frame: np.ndarray) -> None:
         for measurement in self.active_measurements:
-            x, y = self._as_int_point(measurement.centroid)
+            x, y = self._as_int_point(self._to_display_point(measurement.centroid))
             anchor_x = max(10, x - 56)
             anchor_y = max(36, y - 24)
             self._draw_label_badges(
@@ -529,6 +537,44 @@ class SpeedEstimator:
 
     def _muted_color(self, color: tuple[int, int, int]) -> tuple[int, int, int]:
         return tuple(int((component * 0.45) + 60) for component in color)
+
+    def _configure_detection_geometry(self) -> None:
+        if not self.perspective_enabled or self.homography_matrix is None:
+            self.detect_roi_points = self.display_roi_points
+            self.line_a = self.display_line_a
+            self.line_b = self.display_line_b
+            return
+
+        self.detect_roi_points = self._transform_polygon(
+            self.display_roi_points, self.homography_matrix
+        )
+        self.line_a = self._transform_segment(self.display_line_a, self.homography_matrix)
+        self.line_b = self._transform_segment(self.display_line_b, self.homography_matrix)
+
+    def _display_bbox(self, bbox: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        if not self.perspective_enabled or self.inverse_homography_matrix is None:
+            return bbox
+
+        x, y, w, h = bbox
+        corners = [
+            (x, y),
+            (x + w, y),
+            (x + w, y + h),
+            (x, y + h),
+        ]
+        transformed = [self._to_display_point(point) for point in corners]
+        xs = [point[0] for point in transformed]
+        ys = [point[1] for point in transformed]
+        min_x = int(min(xs))
+        min_y = int(min(ys))
+        max_x = int(max(xs))
+        max_y = int(max(ys))
+        return (min_x, min_y, max(1, max_x - min_x), max(1, max_y - min_y))
+
+    def _to_display_point(self, point: tuple[float, float]) -> tuple[float, float]:
+        if not self.perspective_enabled or self.inverse_homography_matrix is None:
+            return point
+        return self._transform_point(point, self.inverse_homography_matrix)
 
     def _draw_label_badges(
         self,
@@ -591,6 +637,51 @@ class SpeedEstimator:
         x = int(centroid[0] - 12)
         y = int(centroid[1] - 12)
         return (x, y, 24, 24)
+
+    def _as_polygon(self, values: Any) -> list[tuple[float, float]]:
+        if not isinstance(values, list):
+            return []
+        points: list[tuple[float, float]] = []
+        for value in values:
+            if isinstance(value, (list, tuple)) and len(value) == 2:
+                points.append((float(value[0]), float(value[1])))
+        return points
+
+    def _invert_matrix(self, matrix: np.ndarray | None) -> np.ndarray | None:
+        if matrix is None or matrix.shape != (3, 3):
+            return None
+        try:
+            return np.linalg.inv(matrix)
+        except np.linalg.LinAlgError:
+            return None
+
+    def _transform_point(
+        self, point: tuple[float, float], matrix: np.ndarray
+    ) -> tuple[float, float]:
+        src = np.array([[[point[0], point[1]]]], dtype=np.float32)
+        dst = cv2.perspectiveTransform(src, matrix)
+        return (float(dst[0][0][0]), float(dst[0][0][1]))
+
+    def _transform_polygon(
+        self, points: list[tuple[float, float]], matrix: np.ndarray
+    ) -> list[tuple[float, float]]:
+        if not points:
+            return []
+        src = np.array([points], dtype=np.float32)
+        dst = cv2.perspectiveTransform(src, matrix)[0]
+        return [(float(point[0]), float(point[1])) for point in dst]
+
+    def _transform_segment(
+        self,
+        segment: tuple[tuple[float, float], tuple[float, float]] | None,
+        matrix: np.ndarray,
+    ) -> tuple[tuple[float, float], tuple[float, float]] | None:
+        if segment is None:
+            return None
+        transformed = self._transform_polygon([segment[0], segment[1]], matrix)
+        if len(transformed) != 2:
+            return None
+        return (transformed[0], transformed[1])
 
     def _segments_intersect(
         self,
