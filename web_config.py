@@ -166,6 +166,17 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
                     "speed_px_s": round(float(event.get("speed_px_s", 0.0)), 1),
                     "speed_label": event.get("speed_label", f"{speed_kmh:.1f} km/h"),
                     "area": round(float(event.get("area", 0.0)), 1),
+                    "estimated_goal_time_seconds": round(
+                        float(event.get("estimated_goal_time_seconds", 0.0)), 3
+                    )
+                    if event.get("estimated_goal_time_seconds") is not None
+                    else None,
+                    "estimated_goal_time_label": event.get("estimated_goal_time_label", "--"),
+                    "goal_time_delta_seconds": round(
+                        float(event.get("goal_time_delta_seconds", 0.0)), 3
+                    )
+                    if event.get("goal_time_delta_seconds") is not None
+                    else None,
                     "center_x": round(float(center_x), 1),
                     "center_y": round(float(center_y), 1),
                 }

@@ -308,13 +308,14 @@
                   <th>ID</th>
                   <th id="event-log-mode-header" hidden>Mode</th>
                   <th>速度</th>
+                  <th>推定Goal</th>
                   <th id="event-log-area-header" hidden>Area</th>
                   <th>座標</th>
                 </tr>
               </thead>
               <tbody id="event-log-body">
                 <tr>
-                  <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
+                  <td colspan="5" class="empty-row">まだ検知ログはありません。</td>
                 </tr>
               </tbody>
             </table>
@@ -463,6 +464,37 @@
           </details>
         </article>
       </aside>
+    </section>
+
+    <section class="panel help-panel">
+      <div class="panel-header">
+        <div>
+          <p class="panel-label">Race Reference</p>
+          <h2>ゴールタイム基準の補正</h2>
+        </div>
+      </div>
+      <div class="form-grid four">
+        <label>ゴールタイム
+          <input id="goal-time-seconds" type="text" inputmode="decimal" placeholder="12.345">
+        </label>
+        <label>コース距離 m
+          <input id="course-distance-m" type="number" min="0" step="0.1">
+        </label>
+        <label>測定地点 m
+          <input id="measurement-point-m" type="number" min="0" step="0.1">
+        </label>
+        <label>グローバル偏差 km/h
+          <input id="global-bias-kmh" type="range" min="-2.0" max="2.0" step="0.1" value="0">
+        </label>
+      </div>
+      <div class="stats-grid race-stats-grid">
+        <div class="stat-card"><p class="summary-label">偏差</p><p id="global-bias-display" class="summary-value">+0.0 km/h</p></div>
+        <div class="stat-card"><p class="summary-label">公式平均速度</p><p id="official-average-speed" class="summary-value">--</p></div>
+        <div class="stat-card"><p class="summary-label">残り距離</p><p id="remaining-distance-display" class="summary-value">--</p></div>
+        <div class="stat-card"><p class="summary-label">最新推定Goal</p><p id="latest-estimated-goal" class="summary-value">--</p></div>
+        <div class="stat-card"><p class="summary-label">Goal差分</p><p id="latest-goal-delta" class="summary-value">--</p></div>
+      </div>
+      <p class="hint">測定地点までの経過は公式平均ペース、測定地点から先は推定速度で走る前提のざっくり補正です。実コース設置前の目安用として使えます。</p>
     </section>
 
     <section class="panel help-panel">

@@ -38,6 +38,15 @@ const statMaxSpeedEl = document.getElementById("stat-max-speed");
 const statCsiExposureEl = document.getElementById("stat-csi-exposure");
 const statCsiGainEl = document.getElementById("stat-csi-gain");
 const statCsiAwbEl = document.getElementById("stat-csi-awb");
+const goalTimeInputEl = document.getElementById("goal-time-seconds");
+const courseDistanceInputEl = document.getElementById("course-distance-m");
+const measurementPointInputEl = document.getElementById("measurement-point-m");
+const globalBiasInputEl = document.getElementById("global-bias-kmh");
+const globalBiasDisplayEl = document.getElementById("global-bias-display");
+const officialAverageSpeedEl = document.getElementById("official-average-speed");
+const remainingDistanceDisplayEl = document.getElementById("remaining-distance-display");
+const latestEstimatedGoalEl = document.getElementById("latest-estimated-goal");
+const latestGoalDeltaEl = document.getElementById("latest-goal-delta");
 
 const state = {
   config: null,
@@ -81,6 +90,40 @@ function getChecked(id) {
 
 function setOptionalValue(id, value) {
   document.getElementById(id).value = value ?? "";
+}
+
+function formatSeconds(seconds) {
+  const value = Number(seconds);
+  if (!Number.isFinite(value) || value <= 0) {
+    return "";
+  }
+  const minutes = Math.floor(value / 60);
+  const rest = value - (minutes * 60);
+  return minutes > 0 ? `${minutes}:${rest.toFixed(3).padStart(6, "0")}` : value.toFixed(3);
+}
+
+function parseGoalTimeInput(raw) {
+  const value = String(raw || "").trim();
+  if (!value) {
+    return 0;
+  }
+  if (value.includes(":")) {
+    const parts = value.split(":");
+    if (parts.length !== 2) {
+      throw new Error("ゴールタイムは 12.345 または 1:12.345 形式で入力してください。");
+    }
+    const minutes = Number(parts[0]);
+    const seconds = Number(parts[1]);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0) {
+      throw new Error("ゴールタイムの形式が正しくありません。");
+    }
+    return (minutes * 60) + seconds;
+  }
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    throw new Error("ゴールタイムは 0 以上の秒数で入力してください。");
+  }
+  return seconds;
 }
 
 function getOptionalNumber(id) {
@@ -292,7 +335,7 @@ function drawCanvas() {
 
 function renderRecentEvents(events) {
   const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
-  const emptyColspan = debugMode ? 6 : 4;
+  const emptyColspan = debugMode ? 7 : 5;
   eventLogModeHeaderEl.hidden = !debugMode;
   eventLogAreaHeaderEl.hidden = !debugMode;
 
@@ -311,6 +354,7 @@ function renderRecentEvents(events) {
           <td>${event.id}</td>
           ${debugMode ? `<td>${event.mode === "line_crossing" ? "Line Crossing" : "Tracking"}</td>` : ""}
           <td>${event.speed_label}</td>
+          <td>${projectRaceReference(event.speed_kmh)?.label || "--"}</td>
           ${debugMode ? `<td>${Number.isFinite(event.area) ? event.area.toFixed(1) : "-"}</td>` : ""}
           <td>${event.center_x}, ${event.center_y}</td>
         </tr>
@@ -360,6 +404,69 @@ function setCompareMode(enabled) {
   comparePanelEl.hidden = !state.compareMode;
   document.getElementById("toggle-compare-mode").classList.toggle("active", state.compareMode);
   document.getElementById("toggle-compare-mode").textContent = state.compareMode ? "比較を閉じる" : "比較モード";
+}
+
+function updateRaceReferenceSummary() {
+  const goalTimeSeconds = (() => {
+    try {
+      return parseGoalTimeInput(goalTimeInputEl.value);
+    } catch {
+      return 0;
+    }
+  })();
+  const courseDistance = Number(courseDistanceInputEl.value || 0);
+  const measurementPoint = Number(measurementPointInputEl.value || 0);
+  const globalBias = Number(globalBiasInputEl.value || 0);
+  globalBiasDisplayEl.textContent = `${globalBias >= 0 ? "+" : ""}${globalBias.toFixed(1)} km/h`;
+
+  if (goalTimeSeconds > 0 && courseDistance > 0) {
+    officialAverageSpeedEl.textContent = `${((courseDistance / goalTimeSeconds) * 3.6).toFixed(1)} km/h`;
+  } else {
+    officialAverageSpeedEl.textContent = "--";
+  }
+
+  if (courseDistance > 0) {
+    const remaining = Math.max(0, courseDistance - Math.max(0, measurementPoint));
+    remainingDistanceDisplayEl.textContent = `${remaining.toFixed(1)} m`;
+  } else {
+    remainingDistanceDisplayEl.textContent = "--";
+  }
+
+  const latest = state.recentEvents[0];
+  const projection = latest ? projectRaceReference(latest.speed_kmh) : null;
+  if (projection) {
+    latestEstimatedGoalEl.textContent = projection.label;
+    latestGoalDeltaEl.textContent = `${projection.deltaSeconds >= 0 ? "+" : ""}${projection.deltaSeconds.toFixed(3)} s`;
+  } else {
+    latestEstimatedGoalEl.textContent = "--";
+    latestGoalDeltaEl.textContent = "--";
+  }
+}
+
+function projectRaceReference(speedKmh) {
+  const goalTimeSeconds = (() => {
+    try {
+      return parseGoalTimeInput(goalTimeInputEl.value);
+    } catch {
+      return 0;
+    }
+  })();
+  const courseDistance = Number(courseDistanceInputEl.value || 0);
+  const measurementPoint = Number(measurementPointInputEl.value || 0);
+  const globalBias = Number(globalBiasInputEl.value || 0);
+  const speed = Number(speedKmh || 0);
+  if (goalTimeSeconds <= 0 || courseDistance <= 0 || speed <= 0) {
+    return null;
+  }
+  const point = Math.min(Math.max(0, measurementPoint), courseDistance);
+  const avgSpeedMps = courseDistance / goalTimeSeconds;
+  const adjustedSpeedMps = Math.max(0.1, speed + globalBias) / 3.6;
+  const estimatedGoalSeconds = (point / avgSpeedMps) + ((courseDistance - point) / adjustedSpeedMps);
+  return {
+    seconds: estimatedGoalSeconds,
+    deltaSeconds: estimatedGoalSeconds - goalTimeSeconds,
+    label: formatSeconds(estimatedGoalSeconds),
+  };
 }
 
 function fillForm(config) {
@@ -421,6 +528,10 @@ function fillForm(config) {
   setValue("repeat-behavior", measurement.repeat_behavior || "normal");
   setValue("repeat-cooldown-seconds", measurement.repeat_cooldown_seconds ?? 0);
   setValue("tracking-direction", measurement.tracking?.direction || "any");
+  goalTimeInputEl.value = formatSeconds(measurement.race_reference?.goal_time_seconds || 0);
+  setValue("course-distance-m", measurement.race_reference?.course_distance_m ?? 0);
+  setValue("measurement-point-m", measurement.race_reference?.measurement_point_m ?? 0);
+  setValue("global-bias-kmh", measurement.race_reference?.global_bias_kmh ?? 0);
   setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
@@ -458,6 +569,7 @@ function fillForm(config) {
   applyCameraTypeUI();
   renderRecentEvents(state.recentEvents);
   diagnosticsPanelEl.hidden = !Boolean(processing.debug_mode);
+  updateRaceReferenceSummary();
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -546,12 +658,14 @@ async function loadRecentEvents() {
   const data = await fetchJson("/api/recent-events");
   state.recentEvents = data.events || [];
   renderRecentEvents(state.recentEvents);
+  updateRaceReferenceSummary();
 }
 
 async function clearRecentEvents() {
   await fetchJson("/api/recent-events/clear", { method: "POST" });
   state.recentEvents = [];
   renderRecentEvents(state.recentEvents);
+  updateRaceReferenceSummary();
   setStatus("最新ログを消去しました。");
 }
 
@@ -790,6 +904,12 @@ function buildMeasurementPayload() {
     tracking: {
       direction: getValue("tracking-direction"),
     },
+    race_reference: {
+      goal_time_seconds: parseGoalTimeInput(goalTimeInputEl.value),
+      course_distance_m: Number(getValue("course-distance-m")),
+      measurement_point_m: Number(getValue("measurement-point-m")),
+      global_bias_kmh: Number(getValue("global-bias-kmh")),
+    },
     line_crossing: {
       line_a: readJsonInput("line-a-points", []),
       line_b: readJsonInput("line-b-points", []),
@@ -812,6 +932,10 @@ function validateBeforeSave() {
   const downscale = Number(getValue("downscale-factor"));
   const frameSkip = Number(getValue("frame-skip"));
   const trackingDirection = getValue("tracking-direction");
+  const goalTimeSeconds = parseGoalTimeInput(goalTimeInputEl.value);
+  const courseDistance = Number(getValue("course-distance-m"));
+  const measurementPoint = Number(getValue("measurement-point-m"));
+  const globalBias = Number(getValue("global-bias-kmh"));
   const csiExposureTime = getOptionalNumber("csi-exposure-time-us");
   const csiAnalogueGain = getOptionalNumber("csi-analogue-gain");
 
@@ -844,6 +968,18 @@ function validateBeforeSave() {
   }
   if (!["any", "left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top"].includes(trackingDirection)) {
     throw new Error("Tracking 方向の設定が不正です。");
+  }
+  if (goalTimeSeconds < 0) {
+    throw new Error("ゴールタイムは 0 以上で入力してください。");
+  }
+  if (courseDistance < 0) {
+    throw new Error("コース距離は 0 以上で入力してください。");
+  }
+  if (measurementPoint < 0 || (courseDistance > 0 && measurementPoint > courseDistance)) {
+    throw new Error("測定地点は 0 以上かつコース距離以下で入力してください。");
+  }
+  if (globalBias < -2 || globalBias > 2) {
+    throw new Error("グローバル偏差は -2.0 から 2.0 km/h の範囲で入力してください。");
   }
   if (csiExposureTime !== null && csiExposureTime <= 0) {
     throw new Error("CSI の露出時間は正の値で入力してください。");
@@ -1002,6 +1138,10 @@ document.getElementById("line-b-points").addEventListener("change", () => {
 document.getElementById("apply-blue-picker").addEventListener("click", applyBluePickerToInputs);
 document.getElementById("blue-color-picker").addEventListener("input", applyBluePickerToInputs);
 document.getElementById("blue-tolerance").addEventListener("input", applyBluePickerToInputs);
+["goal-time-seconds", "course-distance-m", "measurement-point-m", "global-bias-kmh"].forEach((id) => {
+  document.getElementById(id).addEventListener("input", updateRaceReferenceSummary);
+  document.getElementById(id).addEventListener("change", updateRaceReferenceSummary);
+});
 
 [1, 2, 3].forEach((slot) => {
   document.getElementById(`preset-save-${slot}`).addEventListener("click", () => {

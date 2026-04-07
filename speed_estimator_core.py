@@ -49,6 +49,11 @@ class SpeedEstimator:
         self.repeat_cooldown_seconds = float(measurement.get("repeat_cooldown_seconds", 0.0))
         self.tracking_settings = measurement.get("tracking", {})
         self.tracking_direction = str(self.tracking_settings.get("direction", "any")).lower()
+        self.race_reference = measurement.get("race_reference", {})
+        self.goal_time_seconds = float(self.race_reference.get("goal_time_seconds", 0.0))
+        self.course_distance_m = float(self.race_reference.get("course_distance_m", 0.0))
+        self.measurement_point_m = float(self.race_reference.get("measurement_point_m", 0.0))
+        self.global_bias_kmh = float(self.race_reference.get("global_bias_kmh", 0.0))
         self.line_crossing = measurement["line_crossing"]
         self.display_line_a = self._as_points(self.line_crossing["line_a"])
         self.display_line_b = self._as_points(self.line_crossing["line_b"])
@@ -321,6 +326,7 @@ class SpeedEstimator:
                     "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
                     "color": self._track_color(track.track_id),
                 }
+                event.update(self._goal_time_projection(track.speed_kmh))
                 event = self._apply_repeat_behavior(track, event, now)
                 if event is None:
                     continue
@@ -390,6 +396,7 @@ class SpeedEstimator:
             "speed_label": f"{speed_kmh:.1f} km/h",
             "color": self._track_color(track.track_id),
         }
+        event.update(self._goal_time_projection(speed_kmh))
         event = self._apply_repeat_behavior(track, event, now)
         track.crossed_lines.clear()
         if event is None:
@@ -518,6 +525,35 @@ class SpeedEstimator:
             "process_interval": process_interval,
             "detection_enabled": self.detection_enabled,
             "debug_mode": self.debug_mode,
+        }
+
+    def _goal_time_projection(self, speed_kmh: float) -> dict[str, float | str]:
+        if (
+            self.goal_time_seconds <= 0
+            or self.course_distance_m <= 0
+            or speed_kmh <= 0
+        ):
+            return {}
+
+        adjusted_speed_kmh = max(0.1, speed_kmh + self.global_bias_kmh)
+        adjusted_speed_mps = adjusted_speed_kmh / 3.6
+        avg_speed_mps = self.course_distance_m / self.goal_time_seconds
+        point_m = min(max(self.measurement_point_m, 0.0), self.course_distance_m)
+        elapsed_to_point = point_m / avg_speed_mps if avg_speed_mps > 0 else 0.0
+        remaining_distance = max(0.0, self.course_distance_m - point_m)
+        estimated_goal_time = elapsed_to_point + (remaining_distance / adjusted_speed_mps)
+        delta_seconds = estimated_goal_time - self.goal_time_seconds
+        minutes = int(estimated_goal_time // 60)
+        seconds = estimated_goal_time - (minutes * 60)
+        if minutes > 0:
+            label = f"{minutes}:{seconds:06.3f}"
+        else:
+            label = f"{estimated_goal_time:.3f}s"
+        return {
+            "estimated_goal_time_seconds": estimated_goal_time,
+            "estimated_goal_time_label": label,
+            "goal_time_delta_seconds": delta_seconds,
+            "adjusted_speed_kmh": adjusted_speed_kmh,
         }
 
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:

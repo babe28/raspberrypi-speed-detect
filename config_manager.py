@@ -62,6 +62,12 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "tracking": {
             "direction": "any",
         },
+        "race_reference": {
+            "goal_time_seconds": 0.0,
+            "course_distance_m": 0.0,
+            "measurement_point_m": 0.0,
+            "global_bias_kmh": 0.0,
+        },
         "line_crossing": {
             "line_a": [],
             "line_b": [],
@@ -234,6 +240,21 @@ class ConfigManager:
         measurement["tracking"] = {
             "direction": str(tracking.get("direction", "any")).lower(),
         }
+        race_reference = measurement.get("race_reference", {})
+        measurement["race_reference"] = {
+            "goal_time_seconds": max(
+                0.0, float(race_reference.get("goal_time_seconds", 0.0))
+            ),
+            "course_distance_m": max(
+                0.0, float(race_reference.get("course_distance_m", 0.0))
+            ),
+            "measurement_point_m": max(
+                0.0, float(race_reference.get("measurement_point_m", 0.0))
+            ),
+            "global_bias_kmh": max(
+                -2.0, min(2.0, float(race_reference.get("global_bias_kmh", 0.0)))
+            ),
+        }
         line_crossing = measurement.get("line_crossing", {})
         measurement["line_crossing"] = {
             "line_a": [self._normalize_point(point) for point in line_crossing.get("line_a", [])],
@@ -354,6 +375,20 @@ class ConfigManager:
             raise ValueError(
                 "measurement.tracking.direction must be any, left_to_right, right_to_left, top_to_bottom, or bottom_to_top."
             )
+        if measurement["race_reference"]["goal_time_seconds"] < 0:
+            raise ValueError("measurement.race_reference.goal_time_seconds must be 0 or greater.")
+        if measurement["race_reference"]["course_distance_m"] < 0:
+            raise ValueError("measurement.race_reference.course_distance_m must be 0 or greater.")
+        if (
+            measurement["race_reference"]["measurement_point_m"]
+            > measurement["race_reference"]["course_distance_m"]
+            and measurement["race_reference"]["course_distance_m"] > 0
+        ):
+            raise ValueError(
+                "measurement.race_reference.measurement_point_m must be less than or equal to course_distance_m."
+            )
+        if abs(measurement["race_reference"]["global_bias_kmh"]) > 2.0:
+            raise ValueError("measurement.race_reference.global_bias_kmh must be between -2.0 and 2.0.")
         if measurement["overlay_hold_seconds"] <= 0:
             raise ValueError("overlay_hold_seconds must be positive.")
         if measurement["line_crossing"]["distance_m"] <= 0:
