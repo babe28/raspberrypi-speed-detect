@@ -291,6 +291,7 @@ function fillForm(config) {
   document.getElementById("show-mask-preview").checked = processing.show_mask_preview;
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
   document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
+  setValue("manual-distortion", processing.manual_distortion ?? 0);
   document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
   setValue("brightness-offset", processing.brightness_offset ?? 0);
   setValue("contrast-gain", processing.contrast_gain ?? 1.0);
@@ -458,6 +459,7 @@ function buildProcessingPayload() {
     show_mask_preview: getChecked("show-mask-preview"),
     exclude_blue_floor: getChecked("exclude-blue-floor"),
     undistort_enabled: getChecked("undistort-enabled"),
+    manual_distortion: Number(getValue("manual-distortion")),
     perspective_enabled: getChecked("perspective-enabled"),
     brightness_offset: Number(getValue("brightness-offset")),
     contrast_gain: Number(getValue("contrast-gain")),

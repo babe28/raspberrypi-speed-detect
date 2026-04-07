@@ -107,8 +107,9 @@ Scale の `pixel_distance` と `ppm` も合わせて再計算します。
 
 `Image Correction` では、検知前の映像に対して次を設定できます。
 
-- `歪み補正`: calibration.camera_matrix / dist_coeffs がある場合に使用
-- `Perspective補正`: 補正座標系で検知したい場合に使用
+- `レンズ補正`: calibration.camera_matrix / dist_coeffs があればそれを使用
+- `歪み量`: matrix がなくても軽く手動補正するための係数
+- `Perspective補正`: 検知や速度計算をパース補正後の座標系で行いたいときに使用
 - `Brightness`: 明るさの加算
 - `Contrast`: コントラストの倍率
 

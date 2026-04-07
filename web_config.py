@@ -210,6 +210,29 @@ def _build_perspective_preview() -> bytes | None:
         camera_matrix = np.array(camera_matrix_raw, dtype=np.float32)
         dist_coeffs = np.array(dist_coeffs_raw, dtype=np.float32)
         corrected = cv2.undistort(corrected, camera_matrix, dist_coeffs)
+    manual_distortion = float(processing.get("manual_distortion", 0.0))
+    if processing.get("undistort_enabled", True) and abs(manual_distortion) > 1e-6:
+        height, width = corrected.shape[:2]
+        map_x, map_y = np.meshgrid(
+            np.arange(width, dtype=np.float32),
+            np.arange(height, dtype=np.float32),
+        )
+        cx = (width - 1) * 0.5
+        cy = (height - 1) * 0.5
+        nx = (map_x - cx) / max(cx, 1.0)
+        ny = (map_y - cy) / max(cy, 1.0)
+        r2 = (nx * nx) + (ny * ny)
+        k = -0.35 * manual_distortion
+        scale = 1.0 + (k * r2)
+        src_x = (nx * scale * max(cx, 1.0)) + cx
+        src_y = (ny * scale * max(cy, 1.0)) + cy
+        corrected = cv2.remap(
+            corrected,
+            src_x.astype(np.float32),
+            src_y.astype(np.float32),
+            interpolation=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
 
     matrix = np.array(matrix_raw, dtype=np.float32)
     if matrix.shape != (3, 3):

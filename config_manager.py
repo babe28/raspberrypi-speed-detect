@@ -62,6 +62,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "debug_mode": False,
         "show_mask_preview": True,
         "undistort_enabled": True,
+        "manual_distortion": 0.0,
         "perspective_enabled": True,
         "brightness_offset": 0,
         "contrast_gain": 1.0,
@@ -203,6 +204,9 @@ class ConfigManager:
         processing["debug_mode"] = bool(processing.get("debug_mode", False))
         processing["show_mask_preview"] = bool(processing.get("show_mask_preview", True))
         processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
+        processing["manual_distortion"] = max(
+            -1.0, min(1.0, float(processing.get("manual_distortion", 0.0)))
+        )
         processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
         processing["brightness_offset"] = int(processing.get("brightness_offset", 0))
         processing["contrast_gain"] = max(0.1, float(processing.get("contrast_gain", 1.0)))

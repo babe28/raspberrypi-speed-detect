@@ -42,9 +42,9 @@
   "processing": {
     "detection_enabled": false,
     "downscale_factor": 0.5,
-    "min_contour_area": 500,
+    "min_contour_area": 1000,
     "max_contour_area": 50000,
-    "min_speed_kmh": 0.0,
+    "min_speed_kmh": 0.5,
     "max_speed_kmh": 50.0,
     "warmup_frames": 15,
     "background_history": 300,
@@ -59,6 +59,7 @@
     "debug_mode": false,
     "show_mask_preview": true,
     "undistort_enabled": true,
+    "manual_distortion": 0.0,
     "perspective_enabled": true,
     "brightness_offset": 0,
     "contrast_gain": 1.0,
@@ -66,14 +67,14 @@
     "morphology_enabled": true,
     "exclude_blue_floor": false,
     "blue_hsv_low": [
-      90,
-      50,
-      40
+      140,
+      232,
+      112
     ],
     "blue_hsv_high": [
-      135,
+      166,
       255,
-      255
+      149
     ]
   },
   "logging": {

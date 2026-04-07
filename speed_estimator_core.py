@@ -66,6 +66,7 @@ class SpeedEstimator:
         self.debug_mode = bool(processing["debug_mode"])
         self.show_mask_preview = bool(processing.get("show_mask_preview", True))
         self.undistort_enabled = bool(processing["undistort_enabled"])
+        self.manual_distortion = float(processing.get("manual_distortion", 0.0))
         self.perspective_enabled = bool(processing["perspective_enabled"])
         self.brightness_offset = int(processing.get("brightness_offset", 0))
         self.contrast_gain = float(processing.get("contrast_gain", 1.0))
@@ -131,7 +132,37 @@ class SpeedEstimator:
         corrected = frame.copy()
         if self.undistort_enabled and self.camera_matrix is not None and self.dist_coeffs is not None:
             corrected = cv2.undistort(corrected, self.camera_matrix, self.dist_coeffs)
+        if self.undistort_enabled and abs(self.manual_distortion) > 1e-6:
+            corrected = self._apply_manual_distortion(corrected, self.manual_distortion)
         return corrected
+
+    def _apply_manual_distortion(self, frame: np.ndarray, amount: float) -> np.ndarray:
+        height, width = frame.shape[:2]
+        if width <= 1 or height <= 1:
+            return frame
+
+        map_x, map_y = np.meshgrid(
+            np.arange(width, dtype=np.float32),
+            np.arange(height, dtype=np.float32),
+        )
+        cx = (width - 1) * 0.5
+        cy = (height - 1) * 0.5
+        nx = (map_x - cx) / max(cx, 1.0)
+        ny = (map_y - cy) / max(cy, 1.0)
+        r2 = (nx * nx) + (ny * ny)
+
+        # Positive values pull edges inward a bit; negative values push them outward.
+        k = -0.35 * float(amount)
+        scale = 1.0 + (k * r2)
+        src_x = (nx * scale * max(cx, 1.0)) + cx
+        src_y = (ny * scale * max(cy, 1.0)) + cy
+        return cv2.remap(
+            frame,
+            src_x.astype(np.float32),
+            src_y.astype(np.float32),
+            interpolation=cv2.INTER_LINEAR,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
 
     def _apply_perspective(self, frame: np.ndarray) -> np.ndarray:
         corrected = frame.copy()
