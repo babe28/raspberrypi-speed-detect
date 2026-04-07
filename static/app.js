@@ -9,6 +9,8 @@ const scaleCountEl = document.getElementById("scale-count");
 const lineACountEl = document.getElementById("line-a-count");
 const lineBCountEl = document.getElementById("line-b-count");
 const eventLogBodyEl = document.getElementById("event-log-body");
+const eventLogModeHeaderEl = document.getElementById("event-log-mode-header");
+const eventLogAreaHeaderEl = document.getElementById("event-log-area-header");
 const blueLowPreviewEl = document.getElementById("blue-low-preview");
 const blueHighPreviewEl = document.getElementById("blue-high-preview");
 const bluePickerLabelEl = document.getElementById("blue-picker-label");
@@ -32,6 +34,7 @@ const state = {
   lineAPoints: [],
   lineBPoints: [],
   monitorFocus: false,
+  recentEvents: [],
 };
 
 state.image.addEventListener("load", () => {
@@ -270,9 +273,14 @@ function drawCanvas() {
 }
 
 function renderRecentEvents(events) {
+  const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
+  const emptyColspan = debugMode ? 6 : 4;
+  eventLogModeHeaderEl.hidden = !debugMode;
+  eventLogAreaHeaderEl.hidden = !debugMode;
+
   if (!events.length) {
     eventLogBodyEl.innerHTML = `
-      <tr><td colspan="7" class="empty-row">まだ検知ログはありません。</td></tr>
+      <tr><td colspan="${emptyColspan}" class="empty-row">まだ検知ログはありません。</td></tr>
     `;
     return;
   }
@@ -283,10 +291,9 @@ function renderRecentEvents(events) {
         <tr>
           <td>${event.timestamp_label}</td>
           <td>${event.id}</td>
-          <td>${event.mode === "line_crossing" ? "Line Crossing" : "Tracking"}</td>
+          ${debugMode ? `<td>${event.mode === "line_crossing" ? "Line Crossing" : "Tracking"}</td>` : ""}
           <td>${event.speed_label}</td>
-          <td>${Number.isFinite(event.speed_px_s) ? event.speed_px_s.toFixed(1) : "-"}</td>
-          <td>${Number.isFinite(event.area) ? event.area.toFixed(1) : "-"}</td>
+          ${debugMode ? `<td>${Number.isFinite(event.area) ? event.area.toFixed(1) : "-"}</td>` : ""}
           <td>${event.center_x}, ${event.center_y}</td>
         </tr>
       `,
@@ -386,6 +393,7 @@ function fillForm(config) {
   setValue("overlay-hold-seconds", measurement.overlay_hold_seconds);
   setValue("repeat-behavior", measurement.repeat_behavior || "normal");
   setValue("repeat-cooldown-seconds", measurement.repeat_cooldown_seconds ?? 0);
+  setValue("tracking-direction", measurement.tracking?.direction || "any");
   setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
@@ -420,6 +428,7 @@ function fillForm(config) {
   drawCanvas();
   updateBluePreviews();
   applyCameraTypeUI();
+  renderRecentEvents(state.recentEvents);
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -505,12 +514,14 @@ async function loadRecentEvents() {
     return;
   }
   const data = await fetchJson("/api/recent-events");
-  renderRecentEvents(data.events || []);
+  state.recentEvents = data.events || [];
+  renderRecentEvents(state.recentEvents);
 }
 
 async function clearRecentEvents() {
   await fetchJson("/api/recent-events/clear", { method: "POST" });
-  renderRecentEvents([]);
+  state.recentEvents = [];
+  renderRecentEvents(state.recentEvents);
   setStatus("最新ログを消去しました。");
 }
 
@@ -604,6 +615,9 @@ function buildMeasurementPayload() {
     overlay_hold_seconds: Number(getValue("overlay-hold-seconds")),
     repeat_behavior: getValue("repeat-behavior"),
     repeat_cooldown_seconds: Number(getValue("repeat-cooldown-seconds")),
+    tracking: {
+      direction: getValue("tracking-direction"),
+    },
     line_crossing: {
       line_a: readJsonInput("line-a-points", []),
       line_b: readJsonInput("line-b-points", []),
@@ -624,6 +638,7 @@ function validateBeforeSave() {
   const minSpeed = Number(getValue("min-speed-kmh"));
   const maxSpeed = Number(getValue("max-speed-kmh"));
   const downscale = Number(getValue("downscale-factor"));
+  const trackingDirection = getValue("tracking-direction");
   const csiExposureTime = getOptionalNumber("csi-exposure-time-us");
   const csiAnalogueGain = getOptionalNumber("csi-analogue-gain");
 
@@ -650,6 +665,9 @@ function validateBeforeSave() {
   }
   if (maxSpeed <= 0 || maxSpeed < minSpeed) {
     throw new Error("速度範囲を見直してください。");
+  }
+  if (!["any", "left_to_right", "right_to_left", "top_to_bottom", "bottom_to_top"].includes(trackingDirection)) {
+    throw new Error("Tracking 方向の設定が不正です。");
   }
   if (csiExposureTime !== null && csiExposureTime <= 0) {
     throw new Error("CSI の露出時間は正の値で入力してください。");
@@ -766,6 +784,9 @@ monitorLayoutButtonEl.addEventListener("click", () => setMonitorFocus(!state.mon
 cameraTypeEl.addEventListener("change", applyCameraTypeUI);
 ["usb-auto-exposure", "usb-autofocus", "csi-auto-exposure", "csi-auto-white-balance"].forEach((id) => {
   document.getElementById(id).addEventListener("change", applyCameraTypeUI);
+});
+document.getElementById("debug-mode").addEventListener("change", () => {
+  renderRecentEvents(state.recentEvents);
 });
 
 document.getElementById("mode-roi").dataset.mode = "roi";

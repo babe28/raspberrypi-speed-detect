@@ -140,11 +140,20 @@
                 <label>重複検知クールダウン 秒
                   <input id="repeat-cooldown-seconds" type="number" min="0" max="30" step="0.5">
                 </label>
+                <label>Tracking 方向
+                  <select id="tracking-direction">
+                    <option value="any">全方向</option>
+                    <option value="left_to_right">左→右</option>
+                    <option value="right_to_left">右→左</option>
+                    <option value="top_to_bottom">上→下</option>
+                    <option value="bottom_to_top">下→上</option>
+                  </select>
+                </label>
                 <label>Line 間距離 m
                   <input id="line-distance-m" type="number" min="0.01" step="0.01">
                 </label>
               </div>
-              <p class="hint">Line Crossing は Line A と Line B の通過時間差から速度を算出します。</p>
+              <p class="hint">Tracking では重心移動の向きを条件にできます。Line Crossing は Line A と Line B の通過時間差から速度を算出します。</p>
               <div class="form-grid two">
                 <label>Line A JSON
                   <input id="line-a-points" type="text" placeholder="[[100,100],[300,100]]">
@@ -278,16 +287,15 @@
                 <tr>
                   <th>時刻</th>
                   <th>ID</th>
-                  <th>Mode</th>
+                  <th id="event-log-mode-header" hidden>Mode</th>
                   <th>速度</th>
-                  <th>px/s</th>
-                  <th>Area</th>
+                  <th id="event-log-area-header" hidden>Area</th>
                   <th>座標</th>
                 </tr>
               </thead>
               <tbody id="event-log-body">
                 <tr>
-                  <td colspan="7" class="empty-row">まだ検知ログはありません。</td>
+                  <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
                 </tr>
               </tbody>
             </table>
@@ -409,7 +417,9 @@
       <div class="help-grid">
         <article class="help-card"><h3>入力ソース切替</h3><p>USB / CSI / RTSP はプルダウンで切り替えます。RTSP 選択時だけ URL が必須です。</p></article>
         <article class="help-card"><h3>編集の使い方</h3><p>スナップショット上で ROI、Perspective、Scale、Line A/B を編集します。監視レイアウトに切り替えると編集パネルを小さくしてライブとログを広く表示できます。</p></article>
+        <article class="help-card"><h3>ダウンスケール</h3><p>処理前に画像を縮小して負荷を下げます。小さくするほど軽くなりますが、細い対象や遠距離の対象は輪郭が消えやすくなります。</p></article>
         <article class="help-card"><h3>最小輪郭 / 最大輪郭</h3><p>小さすぎるノイズや大きすぎる誤検知を抑える基本パラメータです。デバッグモードでは輪郭サイズも表示されます。</p></article>
+        <article class="help-card"><h3>ウォームアップ</h3><p>起動直後の背景学習に使うフレーム数です。この間は検知結果が安定しにくいので、照明変化が大きい環境では少し長めが安全です。</p></article>
         <article class="help-card"><h3>しきい値</h3><p>背景差分後の二値化強度です。上げるとノイズは減り、上げすぎると対象も消えます。</p></article>
         <article class="help-card"><h3>背景履歴 / 背景しきい値</h3><p>背景モデルの追従速度と感度に効きます。環境変化が大きい場合は履歴を短めにします。</p></article>
         <article class="help-card"><h3>Blur / Morphology</h3><p>Blur は細かいノイズ低減、Morphology は穴埋めや小片除去に有効です。重い場合は両方オフで比較できます。</p></article>

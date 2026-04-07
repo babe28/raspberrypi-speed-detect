@@ -47,6 +47,8 @@ class SpeedEstimator:
         self.overlay_hold_seconds = float(measurement["overlay_hold_seconds"])
         self.repeat_behavior = str(measurement.get("repeat_behavior", "normal"))
         self.repeat_cooldown_seconds = float(measurement.get("repeat_cooldown_seconds", 0.0))
+        self.tracking_settings = measurement.get("tracking", {})
+        self.tracking_direction = str(self.tracking_settings.get("direction", "any")).lower()
         self.line_crossing = measurement["line_crossing"]
         self.display_line_a = self._as_points(self.line_crossing["line_a"])
         self.display_line_b = self._as_points(self.line_crossing["line_b"])
@@ -279,6 +281,8 @@ class SpeedEstimator:
             if self.measurement_mode == "tracking":
                 if self.scale_ppm > 0 and track.speed_kmh < self.min_speed_kmh:
                     continue
+                if not self._tracking_direction_matches(previous_centroid, track.centroid):
+                    continue
                 event = {
                     "id": track.track_id,
                     "bbox": detection["bbox"],
@@ -396,6 +400,30 @@ class SpeedEstimator:
         if kmh > self.max_speed_kmh:
             return track.speed_kmh, track.speed_px_s
         return kmh, speed_px_s
+
+    def _tracking_direction_matches(
+        self,
+        previous_centroid: tuple[float, float],
+        current_centroid: tuple[float, float],
+    ) -> bool:
+        if self.tracking_direction == "any":
+            return True
+
+        dx = current_centroid[0] - previous_centroid[0]
+        dy = current_centroid[1] - previous_centroid[1]
+
+        if abs(dx) < 1e-6 and abs(dy) < 1e-6:
+            return False
+
+        if self.tracking_direction == "left_to_right":
+            return dx > 0 and abs(dx) >= abs(dy)
+        if self.tracking_direction == "right_to_left":
+            return dx < 0 and abs(dx) >= abs(dy)
+        if self.tracking_direction == "top_to_bottom":
+            return dy > 0 and abs(dy) >= abs(dx)
+        if self.tracking_direction == "bottom_to_top":
+            return dy < 0 and abs(dy) >= abs(dx)
+        return True
 
     def _apply_repeat_behavior(
         self, track: Track, event: dict[str, Any], now: float

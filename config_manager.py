@@ -59,6 +59,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "overlay_hold_seconds": 5.0,
         "repeat_behavior": "normal",
         "repeat_cooldown_seconds": 0.0,
+        "tracking": {
+            "direction": "any",
+        },
         "line_crossing": {
             "line_a": [],
             "line_b": [],
@@ -225,6 +228,10 @@ class ConfigManager:
         measurement["repeat_cooldown_seconds"] = max(
             0.0, float(measurement.get("repeat_cooldown_seconds", 0.0))
         )
+        tracking = measurement.get("tracking", {})
+        measurement["tracking"] = {
+            "direction": str(tracking.get("direction", "any")).lower(),
+        }
         line_crossing = measurement.get("line_crossing", {})
         measurement["line_crossing"] = {
             "line_a": [self._normalize_point(point) for point in line_crossing.get("line_a", [])],
@@ -331,6 +338,16 @@ class ConfigManager:
 
         if measurement["mode"] not in {"tracking", "line_crossing"}:
             raise ValueError("measurement.mode must be tracking or line_crossing.")
+        if measurement["tracking"]["direction"] not in {
+            "any",
+            "left_to_right",
+            "right_to_left",
+            "top_to_bottom",
+            "bottom_to_top",
+        }:
+            raise ValueError(
+                "measurement.tracking.direction must be any, left_to_right, right_to_left, top_to_bottom, or bottom_to_top."
+            )
         if measurement["overlay_hold_seconds"] <= 0:
             raise ValueError("overlay_hold_seconds must be positive.")
         if measurement["line_crossing"]["distance_m"] <= 0:
