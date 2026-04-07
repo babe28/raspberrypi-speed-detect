@@ -46,6 +46,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "downscale_factor": 0.5,
         "min_contour_area": 500,
         "max_contour_area": 50000,
+        "min_speed_kmh": 0.0,
         "max_speed_kmh": 50.0,
         "warmup_frames": 15,
         "background_history": 300,
@@ -58,6 +59,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "track_max_distance": 80,
         "track_max_missing_frames": 8,
         "debug_mode": False,
+        "show_mask_preview": True,
         "undistort_enabled": True,
         "perspective_enabled": True,
         "blur_enabled": True,
@@ -170,6 +172,7 @@ class ConfigManager:
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
         processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
+        processing["min_speed_kmh"] = max(0.0, float(processing.get("min_speed_kmh", 0.0)))
         processing["max_speed_kmh"] = float(processing.get("max_speed_kmh", 50.0))
         processing["warmup_frames"] = int(processing.get("warmup_frames", 15))
         processing["background_history"] = int(processing.get("background_history", 300))
@@ -194,6 +197,7 @@ class ConfigManager:
             processing.get("track_max_missing_frames", 8)
         )
         processing["debug_mode"] = bool(processing.get("debug_mode", False))
+        processing["show_mask_preview"] = bool(processing.get("show_mask_preview", True))
         processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
         processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
         processing["blur_enabled"] = bool(processing.get("blur_enabled", True))

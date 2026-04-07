@@ -53,6 +53,7 @@ class SpeedEstimator:
         self.line_distance_m = float(self.line_crossing["distance_m"])
         self.min_contour_area = int(processing["min_contour_area"])
         self.max_contour_area = int(processing["max_contour_area"])
+        self.min_speed_kmh = float(processing.get("min_speed_kmh", 0.0))
         self.track_max_distance = float(processing["track_max_distance"])
         self.track_max_missing_frames = int(processing["track_max_missing_frames"])
         self.warmup_frames = int(processing["warmup_frames"])
@@ -62,6 +63,7 @@ class SpeedEstimator:
         self.open_iterations = int(processing["open_iterations"])
         self.dilate_iterations = int(processing["dilate_iterations"])
         self.debug_mode = bool(processing["debug_mode"])
+        self.show_mask_preview = bool(processing.get("show_mask_preview", True))
         self.undistort_enabled = bool(processing["undistort_enabled"])
         self.perspective_enabled = bool(processing["perspective_enabled"])
         self.blur_enabled = bool(processing["blur_enabled"])
@@ -232,6 +234,8 @@ class SpeedEstimator:
 
             matched_track_ids.add(track.track_id)
             if self.measurement_mode == "tracking":
+                if self.scale_ppm > 0 and track.speed_kmh < self.min_speed_kmh:
+                    continue
                 event = {
                     "id": track.track_id,
                     "bbox": detection["bbox"],
@@ -287,6 +291,8 @@ class SpeedEstimator:
             return None
 
         speed_kmh = self.line_distance_m / dt * 3.6
+        if speed_kmh < self.min_speed_kmh:
+            return None
         if speed_kmh > self.max_speed_kmh:
             return None
 
@@ -333,6 +339,8 @@ class SpeedEstimator:
 
         meters = distance_pixels / self.scale_ppm
         kmh = meters / dt * 3.6
+        if kmh < self.min_speed_kmh:
+            return 0.0, speed_px_s
         if kmh > self.max_speed_kmh:
             return track.speed_kmh, track.speed_px_s
         return kmh, speed_px_s
@@ -408,15 +416,17 @@ class SpeedEstimator:
         self._draw_measurement_lines(annotated)
         self._draw_active_measurements(annotated)
 
-        mask_preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
-        preview_scale = 3 if self.debug_mode else 4
-        preview_h = max(1, annotated.shape[0] // preview_scale)
-        preview_w = max(1, annotated.shape[1] // preview_scale)
-        mask_preview = cv2.resize(mask_preview, (preview_w, preview_h))
-        annotated[:preview_h, :preview_w] = mask_preview
+        if self.show_mask_preview:
+            mask_preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+            preview_scale = 3 if self.debug_mode else 4
+            preview_h = max(1, annotated.shape[0] // preview_scale)
+            preview_w = max(1, annotated.shape[1] // preview_scale)
+            mask_preview = cv2.resize(mask_preview, (preview_w, preview_h))
+            annotated[:preview_h, :preview_w] = mask_preview
         if self.debug_mode:
             debug_text = (
                 f"debug min={self.min_contour_area} max={self.max_contour_area} "
+                f"minspd={self.min_speed_kmh:.1f} "
                 f"thr={self.effective_threshold_value} blue={'on' if self.exclude_blue_floor else 'off'} "
                 f"ppm={'set' if self.scale_ppm > 0 else 'unset'}"
             )

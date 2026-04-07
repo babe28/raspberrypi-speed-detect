@@ -267,6 +267,7 @@ function fillForm(config) {
   setValue("downscale-factor", processing.downscale_factor);
   setValue("min-contour-area", processing.min_contour_area);
   setValue("max-contour-area", processing.max_contour_area);
+  setValue("min-speed-kmh", processing.min_speed_kmh ?? 0);
   setValue("threshold-value", processing.threshold_value);
   setValue("max-speed-kmh", processing.max_speed_kmh);
   setValue("warmup-frames", processing.warmup_frames ?? 15);
@@ -286,6 +287,7 @@ function fillForm(config) {
   setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
+  document.getElementById("show-mask-preview").checked = processing.show_mask_preview;
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
   document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
   document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
@@ -436,6 +438,7 @@ function buildProcessingPayload() {
     downscale_factor: Number(getValue("downscale-factor")),
     min_contour_area: Number(getValue("min-contour-area")),
     max_contour_area: Number(getValue("max-contour-area")),
+    min_speed_kmh: Number(getValue("min-speed-kmh")),
     threshold_value: Number(getValue("threshold-value")),
     max_speed_kmh: Number(getValue("max-speed-kmh")),
     warmup_frames: Number(getValue("warmup-frames")),
@@ -448,6 +451,7 @@ function buildProcessingPayload() {
     track_max_distance: Number(getValue("track-max-distance")),
     track_max_missing_frames: Number(getValue("track-max-missing-frames")),
     debug_mode: getChecked("debug-mode"),
+    show_mask_preview: getChecked("show-mask-preview"),
     exclude_blue_floor: getChecked("exclude-blue-floor"),
     undistort_enabled: getChecked("undistort-enabled"),
     perspective_enabled: getChecked("perspective-enabled"),
