@@ -8,6 +8,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "camera": {
         "type": "usb",
         "device": 0,
+        "rtsp_enabled": False,
+        "rtsp_url": "",
         "resolution": [1280, 720],
         "fps": 30,
     },
@@ -27,11 +29,24 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "known_distance_m": 2.0,
         "pixel_distance": 0.0,
         "ppm": 0.0,
+        "points": [],
+    },
+    "measurement": {
+        "mode": "tracking",
+        "overlay_hold_seconds": 5.0,
+        "repeat_behavior": "normal",
+        "repeat_cooldown_seconds": 0.0,
+        "line_crossing": {
+            "line_a": [],
+            "line_b": [],
+            "distance_m": 2.0,
+        },
     },
     "processing": {
         "downscale_factor": 0.5,
         "min_contour_area": 500,
         "max_contour_area": 50000,
+        "min_speed_kmh": 0.0,
         "max_speed_kmh": 50.0,
         "warmup_frames": 15,
         "background_history": 300,
@@ -44,6 +59,11 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "track_max_distance": 80,
         "track_max_missing_frames": 8,
         "debug_mode": False,
+        "show_mask_preview": True,
+        "undistort_enabled": True,
+        "perspective_enabled": True,
+        "blur_enabled": True,
+        "morphology_enabled": True,
         "exclude_blue_floor": False,
         "blue_hsv_low": [90, 50, 40],
         "blue_hsv_high": [135, 255, 255],
@@ -103,6 +123,8 @@ class ConfigManager:
         camera["device"] = int(camera.get("device", 0))
         camera["fps"] = int(camera.get("fps", 30))
         camera["type"] = str(camera.get("type", "usb")).lower()
+        camera["rtsp_enabled"] = bool(camera.get("rtsp_enabled", False))
+        camera["rtsp_url"] = str(camera.get("rtsp_url", ""))
 
         roi = config["roi"]
         roi["enabled"] = bool(roi.get("enabled", False))
@@ -124,11 +146,33 @@ class ConfigManager:
         scale["known_distance_m"] = float(scale.get("known_distance_m", 2.0))
         scale["pixel_distance"] = float(scale.get("pixel_distance", 0.0))
         scale["ppm"] = float(scale.get("ppm", 0.0))
+        scale["points"] = [self._normalize_point(point) for point in scale.get("points", [])]
+
+        measurement = config["measurement"]
+        measurement["mode"] = str(measurement.get("mode", "tracking")).lower()
+        measurement["overlay_hold_seconds"] = float(
+            measurement.get("overlay_hold_seconds", 5.0)
+        )
+        measurement["repeat_behavior"] = str(
+            measurement.get("repeat_behavior", "normal")
+        ).lower()
+        if measurement["repeat_behavior"] not in {"normal", "ignore", "subdued"}:
+            measurement["repeat_behavior"] = "normal"
+        measurement["repeat_cooldown_seconds"] = max(
+            0.0, float(measurement.get("repeat_cooldown_seconds", 0.0))
+        )
+        line_crossing = measurement.get("line_crossing", {})
+        measurement["line_crossing"] = {
+            "line_a": [self._normalize_point(point) for point in line_crossing.get("line_a", [])],
+            "line_b": [self._normalize_point(point) for point in line_crossing.get("line_b", [])],
+            "distance_m": float(line_crossing.get("distance_m", scale["known_distance_m"] or 2.0)),
+        }
 
         processing = config["processing"]
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
         processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
+        processing["min_speed_kmh"] = max(0.0, float(processing.get("min_speed_kmh", 0.0)))
         processing["max_speed_kmh"] = float(processing.get("max_speed_kmh", 50.0))
         processing["warmup_frames"] = int(processing.get("warmup_frames", 15))
         processing["background_history"] = int(processing.get("background_history", 300))
@@ -153,6 +197,11 @@ class ConfigManager:
             processing.get("track_max_missing_frames", 8)
         )
         processing["debug_mode"] = bool(processing.get("debug_mode", False))
+        processing["show_mask_preview"] = bool(processing.get("show_mask_preview", True))
+        processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
+        processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
+        processing["blur_enabled"] = bool(processing.get("blur_enabled", True))
+        processing["morphology_enabled"] = bool(processing.get("morphology_enabled", True))
         processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))
         processing["blue_hsv_low"] = self._normalize_hsv_triplet(
             processing.get("blue_hsv_low", [90, 50, 40]),

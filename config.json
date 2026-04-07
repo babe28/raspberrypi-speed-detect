@@ -2,6 +2,8 @@
   "camera": {
     "type": "usb",
     "device": 0,
+    "rtsp_enabled": false,
+    "rtsp_url": "",
     "resolution": [
       1280,
       720
@@ -23,12 +25,25 @@
   "scale": {
     "known_distance_m": 2.0,
     "pixel_distance": 0.0,
-    "ppm": 0.0
+    "ppm": 0.0,
+    "points": []
+  },
+  "measurement": {
+    "mode": "tracking",
+    "overlay_hold_seconds": 5.0,
+    "repeat_behavior": "normal",
+    "repeat_cooldown_seconds": 0.0,
+    "line_crossing": {
+      "line_a": [],
+      "line_b": [],
+      "distance_m": 2.0
+    }
   },
   "processing": {
     "downscale_factor": 0.5,
     "min_contour_area": 500,
     "max_contour_area": 50000,
+    "min_speed_kmh": 0.0,
     "max_speed_kmh": 50.0,
     "warmup_frames": 15,
     "background_history": 300,
@@ -41,6 +56,11 @@
     "track_max_distance": 80,
     "track_max_missing_frames": 8,
     "debug_mode": false,
+    "show_mask_preview": true,
+    "undistort_enabled": true,
+    "perspective_enabled": true,
+    "blur_enabled": true,
+    "morphology_enabled": true,
     "exclude_blue_floor": false,
     "blue_hsv_low": [
       90,

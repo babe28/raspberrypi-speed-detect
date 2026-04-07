@@ -16,6 +16,8 @@ class CameraManager:
         self.config = config
         self.camera_type = config["camera"]["type"]
         self.device = config["camera"]["device"]
+        self.rtsp_enabled = bool(config["camera"].get("rtsp_enabled", False))
+        self.rtsp_url = str(config["camera"].get("rtsp_url", ""))
         self.width, self.height = config["camera"]["resolution"]
         self.fps = config["camera"]["fps"]
         self.downscale_factor = float(config["processing"]["downscale_factor"])
@@ -23,6 +25,10 @@ class CameraManager:
         self.picam2: Any = None
 
     def start(self) -> None:
+        if self.rtsp_enabled:
+            self._start_rtsp_stream()
+            return
+
         if self.camera_type == "csi":
             self._start_csi_camera()
             return
@@ -34,6 +40,15 @@ class CameraManager:
 
         if not self.cap.isOpened():
             raise RuntimeError(f"USB camera could not be opened: device={self.device}")
+
+    def _start_rtsp_stream(self) -> None:
+        if not self.rtsp_url:
+            raise RuntimeError("RTSP is enabled but rtsp_url is empty")
+
+        self.cap = cv2.VideoCapture(self.rtsp_url)
+        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        if not self.cap.isOpened():
+            raise RuntimeError("RTSP stream could not be opened")
 
     def read(self) -> tuple[bool, np.ndarray | None]:
         frame: np.ndarray | None
