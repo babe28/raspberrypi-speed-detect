@@ -23,6 +23,7 @@ const monitorLayoutButtonEl = document.getElementById("toggle-monitor-focus");
 const usbControlsPanelEl = document.getElementById("usb-controls-panel");
 const csiControlsPanelEl = document.getElementById("csi-controls-panel");
 const liveFpsPillEl = document.getElementById("live-fps-pill");
+const diagnosticsPanelEl = document.getElementById("diagnostics-panel");
 const processorStatusEl = document.getElementById("processor-status");
 const comparePanelEl = document.getElementById("compare-panel");
 const compareRawEl = document.getElementById("compare-raw");
@@ -34,6 +35,9 @@ const statFrameMsEl = document.getElementById("stat-frame-ms");
 const statEventCountEl = document.getElementById("stat-event-count");
 const statAvgSpeedEl = document.getElementById("stat-avg-speed");
 const statMaxSpeedEl = document.getElementById("stat-max-speed");
+const statCsiExposureEl = document.getElementById("stat-csi-exposure");
+const statCsiGainEl = document.getElementById("stat-csi-gain");
+const statCsiAwbEl = document.getElementById("stat-csi-awb");
 
 const state = {
   config: null,
@@ -351,10 +355,11 @@ function setMonitorFocus(enabled) {
 }
 
 function setCompareMode(enabled) {
-  state.compareMode = enabled;
-  comparePanelEl.hidden = !enabled;
-  document.getElementById("toggle-compare-mode").classList.toggle("active", enabled);
-  document.getElementById("toggle-compare-mode").textContent = enabled ? "比較を閉じる" : "比較モード";
+  const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
+  state.compareMode = enabled && debugMode;
+  comparePanelEl.hidden = !state.compareMode;
+  document.getElementById("toggle-compare-mode").classList.toggle("active", state.compareMode);
+  document.getElementById("toggle-compare-mode").textContent = state.compareMode ? "比較を閉じる" : "比較モード";
 }
 
 function fillForm(config) {
@@ -452,6 +457,7 @@ function fillForm(config) {
   updateBluePreviews();
   applyCameraTypeUI();
   renderRecentEvents(state.recentEvents);
+  diagnosticsPanelEl.hidden = !Boolean(processing.debug_mode);
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -582,12 +588,27 @@ async function loadProcessorStats() {
   const processFps = Number(data.process_fps || 0);
   const frameMs = Number(data.last_frame_ms || 0);
   liveFpsPillEl.textContent = `FPS ${inputFps > 0 ? inputFps.toFixed(1) : "--"}`;
+  const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
+  diagnosticsPanelEl.hidden = !debugMode;
+  if (!debugMode) {
+    comparePanelEl.hidden = true;
+  }
   statInputFpsEl.textContent = inputFps > 0 ? inputFps.toFixed(1) : "--";
   statProcessFpsEl.textContent = processFps > 0 ? processFps.toFixed(1) : "--";
   statFrameMsEl.textContent = frameMs > 0 ? `${frameMs.toFixed(1)} ms` : "--";
   statEventCountEl.textContent = String(data.last_minute_count ?? 0);
   statAvgSpeedEl.textContent = `${Number(data.last_minute_avg_speed || 0).toFixed(1)} km/h`;
   statMaxSpeedEl.textContent = `${Number(data.last_minute_max_speed || 0).toFixed(1)} km/h`;
+  const csi = data.csi || {};
+  statCsiExposureEl.textContent = Number.isFinite(Number(csi.exposure_time_us))
+    ? `${Number(csi.exposure_time_us).toFixed(0)} us`
+    : "--";
+  statCsiGainEl.textContent = Number.isFinite(Number(csi.analogue_gain))
+    ? Number(csi.analogue_gain).toFixed(2)
+    : "--";
+  statCsiAwbEl.textContent = typeof csi.awb_enabled === "boolean"
+    ? (csi.awb_enabled ? "ON" : "OFF")
+    : "--";
   const processorBits = [];
   processorBits.push(`frame skip ${data.frame_skip ?? 0}`);
   if (data.process_interval) {
@@ -622,7 +643,8 @@ function buildConfigPayload() {
 }
 
 async function loadDiagnosticFrames() {
-  if (!state.compareMode || document.hidden) {
+  const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
+  if (!state.compareMode || !debugMode || document.hidden) {
     return;
   }
   const data = await fetchJson("/api/diagnostics-frames");
@@ -932,6 +954,12 @@ cameraTypeEl.addEventListener("change", applyCameraTypeUI);
 });
 document.getElementById("debug-mode").addEventListener("change", () => {
   renderRecentEvents(state.recentEvents);
+  const enabled = getChecked("debug-mode");
+  diagnosticsPanelEl.hidden = !enabled;
+  if (!enabled) {
+    setCompareMode(false);
+  }
+  loadProcessorStats().catch(() => {});
 });
 
 document.getElementById("mode-roi").dataset.mode = "roi";

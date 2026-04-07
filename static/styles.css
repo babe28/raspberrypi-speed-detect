@@ -357,6 +357,57 @@ label {
   white-space: nowrap;
 }
 
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  font-weight: 700;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  width: 52px;
+  height: 30px;
+}
+
+.switch input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+}
+
+.switch-slider {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background: rgba(10, 86, 104, 0.18);
+  border: 1px solid rgba(10, 86, 104, 0.12);
+  transition: background 140ms ease;
+}
+
+.switch-slider::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 4px 10px rgba(10, 27, 31, 0.18);
+  transition: transform 140ms ease;
+}
+
+.switch input:checked + .switch-slider {
+  background: linear-gradient(135deg, #11998a, var(--accent-strong));
+}
+
+.switch input:checked + .switch-slider::before {
+  transform: translateX(22px);
+}
+
 input,
 select,
 textarea,

@@ -29,6 +29,7 @@ class CameraManager:
         self.downscale_factor = float(config["processing"]["downscale_factor"])
         self.cap: cv2.VideoCapture | None = None
         self.picam2: Any = None
+        self.last_csi_metadata: dict[str, Any] = {}
 
     def start(self) -> None:
         if self.camera_type == "rtsp" or self.rtsp_enabled:
@@ -99,6 +100,12 @@ class CameraManager:
             if self.picam2 is None:
                 return False, None
             frame = self.picam2.capture_array()
+            try:
+                metadata = self.picam2.capture_metadata()
+                if isinstance(metadata, dict):
+                    self.last_csi_metadata = metadata
+            except Exception:
+                self.last_csi_metadata = {}
             if frame is None:
                 return False, None
             if frame.ndim == 3 and frame.shape[2] == 4:
@@ -228,3 +235,15 @@ class CameraManager:
             self.cap.set(prop, float(value))
         except Exception:
             return
+
+    def runtime_info(self) -> dict[str, Any]:
+        info: dict[str, Any] = {"camera_type": self.camera_type}
+        if self.camera_type == "csi":
+            metadata = self.last_csi_metadata or {}
+            info["csi"] = {
+                "exposure_time_us": metadata.get("ExposureTime"),
+                "analogue_gain": metadata.get("AnalogueGain"),
+                "awb_enabled": metadata.get("AwbEnable"),
+                "colour_gains": metadata.get("ColourGains"),
+            }
+        return info

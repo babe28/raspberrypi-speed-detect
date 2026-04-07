@@ -190,10 +190,12 @@ def _encode_jpeg(frame: np.ndarray | None, quality: int = 80) -> bytes | None:
     return buffer.tobytes()
 
 
-def _store_processor_metrics(metrics: dict[str, Any]) -> None:
+def _store_processor_metrics(metrics: dict[str, Any], camera_info: dict[str, Any] | None = None) -> None:
     with processor_metrics_lock:
         processor_metrics.clear()
         processor_metrics.update(metrics)
+        if camera_info:
+            processor_metrics.update(camera_info)
 
 
 def _store_diagnostic_frames(estimator: SpeedEstimator, annotated: np.ndarray) -> None:
@@ -372,7 +374,7 @@ def _processing_loop() -> None:
             annotated, events = estimator.process(frame)
             _store_latest_stream_frame(annotated)
             _store_diagnostic_frames(estimator, annotated)
-            _store_processor_metrics(estimator.runtime_metrics())
+            _store_processor_metrics(estimator.runtime_metrics(), camera.runtime_info())
             _remember_events(events)
     except Exception as exc:  # pragma: no cover - runtime environment dependent
         processor_error = str(exc)
