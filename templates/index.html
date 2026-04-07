@@ -15,6 +15,15 @@
         <p class="lead">スナップショット編集、ライブ確認、検知チューニングを同じ画面で進められる設定UIです。</p>
       </div>
       <div class="topbar-actions">
+        <div class="preset-strip">
+          <button id="preset-save-1" type="button" class="ghost">Preset 1 保存</button>
+          <button id="preset-load-1" type="button" class="ghost">Preset 1 読込</button>
+          <button id="preset-save-2" type="button" class="ghost">Preset 2 保存</button>
+          <button id="preset-load-2" type="button" class="ghost">Preset 2 読込</button>
+          <button id="preset-save-3" type="button" class="ghost">Preset 3 保存</button>
+          <button id="preset-load-3" type="button" class="ghost">Preset 3 読込</button>
+        </div>
+        <button id="reinitialize-camera" type="button" class="ghost">カメラ再初期化</button>
         <button id="reload-config" type="button" class="ghost">設定再読込</button>
       </div>
       <p id="status" class="status"></p>
@@ -203,6 +212,7 @@
             <label class="inline compact checkbox-label"><input id="blur-enabled" type="checkbox"><span>Blur</span></label>
             <label class="inline compact checkbox-label"><input id="morphology-enabled" type="checkbox"><span>Morphology</span></label>
             <label class="inline compact checkbox-label"><input id="debug-mode" type="checkbox"><span>デバッグモード</span></label>
+            <label class="inline compact checkbox-label"><input id="show-fps-overlay" type="checkbox"><span>FPS 表示</span></label>
             <label class="inline compact checkbox-label"><input id="show-mask-preview" type="checkbox"><span>2値化プレビュー</span></label>
             <label class="inline compact checkbox-label"><input id="exclude-blue-floor" type="checkbox"><span>青床を除外</span></label>
           </div>
@@ -265,9 +275,47 @@
               <p class="panel-label">Live</p>
               <h2>ライブ</h2>
             </div>
-            <span class="pill">/stream</span>
+            <div class="mini-actions">
+              <span id="live-fps-pill" class="pill">FPS --</span>
+              <button id="toggle-compare-mode" type="button" class="ghost">比較モード</button>
+            </div>
           </div>
           <img class="stream live-stream" src="/stream" alt="Live stream">
+        </article>
+
+        <article class="panel compact-panel">
+          <div class="panel-header">
+            <div>
+              <p class="panel-label">Diagnostics</p>
+              <h2>現場診断</h2>
+            </div>
+            <span class="pill">runtime</span>
+          </div>
+          <div class="stats-grid">
+            <div class="stat-card"><p class="summary-label">入力FPS</p><p id="stat-input-fps" class="summary-value">--</p></div>
+            <div class="stat-card"><p class="summary-label">処理FPS</p><p id="stat-process-fps" class="summary-value">--</p></div>
+            <div class="stat-card"><p class="summary-label">処理時間</p><p id="stat-frame-ms" class="summary-value">--</p></div>
+            <div class="stat-card"><p class="summary-label">1分件数</p><p id="stat-event-count" class="summary-value">0</p></div>
+            <div class="stat-card"><p class="summary-label">平均速度</p><p id="stat-avg-speed" class="summary-value">0</p></div>
+            <div class="stat-card"><p class="summary-label">最大速度</p><p id="stat-max-speed" class="summary-value">0</p></div>
+          </div>
+          <p id="processor-status" class="hint">プロセッサ情報を読み込み中です。</p>
+          <div id="compare-panel" class="compare-panel" hidden>
+            <div class="compare-grid">
+              <figure class="compare-card">
+                <img id="compare-raw" class="stream preview is-empty" alt="Raw frame">
+                <figcaption>Raw</figcaption>
+              </figure>
+              <figure class="compare-card">
+                <img id="compare-perspective" class="stream preview is-empty" alt="Perspective frame">
+                <figcaption>Perspective</figcaption>
+              </figure>
+              <figure class="compare-card">
+                <img id="compare-mask" class="stream preview is-empty" alt="Mask frame">
+                <figcaption>Mask</figcaption>
+              </figure>
+            </div>
+          </div>
         </article>
 
         <article class="panel compact-panel">

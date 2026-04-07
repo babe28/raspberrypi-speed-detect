@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import base64
+import copy
 from collections import deque
 from datetime import datetime
+import json
 import logging
+from pathlib import Path
 from threading import Event, Lock, Thread
 import time
 from typing import Any
@@ -30,6 +33,13 @@ processor_lock = Lock()
 processor_error: str | None = None
 processor_started = False
 processor_stop_event = Event()
+processor_metrics: dict[str, Any] = {}
+processor_metrics_lock = Lock()
+diagnostic_frames_jpeg: dict[str, bytes] = {}
+diagnostic_frames_lock = Lock()
+event_history: deque[dict[str, Any]] = deque(maxlen=300)
+event_history_lock = Lock()
+PRESETS_PATH = Path("config_presets.json")
 
 
 class SuppressRecentEventsFilter(logging.Filter):
@@ -161,6 +171,99 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
                 }
             )
             last_event_by_track[track_id] = {"timestamp": now, "speed_kmh": speed_kmh}
+            with event_history_lock:
+                event_history.appendleft(
+                    {
+                        "timestamp": now,
+                        "speed_kmh": round(speed_kmh, 1),
+                        "mode": str(event.get("mode", "tracking")),
+                    }
+                )
+
+
+def _encode_jpeg(frame: np.ndarray | None, quality: int = 80) -> bytes | None:
+    if frame is None:
+        return None
+    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    if not success:
+        return None
+    return buffer.tobytes()
+
+
+def _store_processor_metrics(metrics: dict[str, Any]) -> None:
+    with processor_metrics_lock:
+        processor_metrics.clear()
+        processor_metrics.update(metrics)
+
+
+def _store_diagnostic_frames(estimator: SpeedEstimator, annotated: np.ndarray) -> None:
+    frames: dict[str, bytes] = {}
+    encoded_raw = _encode_jpeg(estimator.latest_display_frame, 78)
+    encoded_perspective = _encode_jpeg(estimator.latest_detection_frame, 78)
+    encoded_mask = _encode_jpeg(estimator.latest_mask_frame, 82)
+    encoded_annotated = _encode_jpeg(annotated, 80)
+    if encoded_raw is not None:
+        frames["raw"] = encoded_raw
+    if encoded_perspective is not None:
+        frames["perspective"] = encoded_perspective
+    if encoded_mask is not None:
+        frames["mask"] = encoded_mask
+    if encoded_annotated is not None:
+        frames["annotated"] = encoded_annotated
+    with diagnostic_frames_lock:
+        diagnostic_frames_jpeg.clear()
+        diagnostic_frames_jpeg.update(frames)
+
+
+def _recent_event_stats() -> dict[str, Any]:
+    cutoff = time.time() - 60.0
+    with event_history_lock:
+        recent = [event for event in event_history if event["timestamp"] >= cutoff]
+    count = len(recent)
+    avg_speed = round(sum(event["speed_kmh"] for event in recent) / count, 1) if count else 0.0
+    max_speed = round(max((event["speed_kmh"] for event in recent), default=0.0), 1)
+    tracking_count = sum(1 for event in recent if event["mode"] == "tracking")
+    line_crossing_count = sum(1 for event in recent if event["mode"] == "line_crossing")
+    return {
+        "last_minute_count": count,
+        "last_minute_avg_speed": avg_speed,
+        "last_minute_max_speed": max_speed,
+        "tracking_count": tracking_count,
+        "line_crossing_count": line_crossing_count,
+    }
+
+
+def _preset_store() -> dict[str, Any]:
+    if not PRESETS_PATH.exists():
+        return {"slots": {}}
+    with PRESETS_PATH.open("r", encoding="utf-8") as fh:
+        data = json.load(fh)
+    if not isinstance(data, dict):
+        return {"slots": {}}
+    slots = data.get("slots", {})
+    if not isinstance(slots, dict):
+        slots = {}
+    return {"slots": slots}
+
+
+def _save_preset_store(data: dict[str, Any]) -> None:
+    with PRESETS_PATH.open("w", encoding="utf-8") as fh:
+        json.dump(data, fh, indent=2, ensure_ascii=False)
+
+
+def _preset_summary() -> list[dict[str, Any]]:
+    slots = _preset_store().get("slots", {})
+    summary: list[dict[str, Any]] = []
+    for slot in (1, 2, 3):
+        entry = slots.get(str(slot))
+        summary.append(
+            {
+                "slot": slot,
+                "saved": isinstance(entry, dict) and isinstance(entry.get("config"), dict),
+                "updated_at": entry.get("updated_at") if isinstance(entry, dict) else None,
+            }
+        )
+    return summary
 
 
 def _store_latest_snapshot(frame: np.ndarray) -> None:
@@ -268,6 +371,8 @@ def _processing_loop() -> None:
             _store_latest_snapshot(frame)
             annotated, events = estimator.process(frame)
             _store_latest_stream_frame(annotated)
+            _store_diagnostic_frames(estimator, annotated)
+            _store_processor_metrics(estimator.runtime_metrics())
             _remember_events(events)
     except Exception as exc:  # pragma: no cover - runtime environment dependent
         processor_error = str(exc)
@@ -334,7 +439,79 @@ def clear_recent_events() -> Response:
     with recent_events_lock:
         recent_events.clear()
         last_event_by_track.clear()
+    with event_history_lock:
+        event_history.clear()
     return jsonify({"status": "ok"})
+
+
+@app.get("/api/processor-stats")
+def get_processor_stats() -> Response:
+    ensure_processor_started()
+    with processor_metrics_lock:
+        metrics = dict(processor_metrics)
+    metrics.update(_recent_event_stats())
+    metrics["processor_error"] = processor_error
+    return jsonify(metrics)
+
+
+@app.get("/api/diagnostics-frames")
+def get_diagnostics_frames() -> Response:
+    ensure_processor_started()
+    with diagnostic_frames_lock:
+        if not diagnostic_frames_jpeg:
+            return _json_error("比較用フレームがまだ準備できていません。", 503)
+        frames = {
+            name: base64.b64encode(data).decode("ascii")
+            for name, data in diagnostic_frames_jpeg.items()
+        }
+    return jsonify({"frames": frames})
+
+
+@app.get("/api/presets")
+def get_presets() -> Response:
+    return jsonify({"presets": _preset_summary()})
+
+
+@app.post("/api/presets/<int:slot>/save")
+def save_preset(slot: int) -> Response:
+    if slot not in {1, 2, 3}:
+        return _json_error("プリセット番号は 1 から 3 を指定してください。", 400)
+    payload = request.get_json(silent=True) or {}
+    config_to_store = payload.get("config")
+    if isinstance(config_to_store, dict):
+        normalized = copy.deepcopy(config_to_store)
+        config_manager._normalize(normalized)
+        config_manager._validate(normalized)
+        config_to_store = normalized
+    else:
+        config_to_store = config_manager.load()
+    store = _preset_store()
+    slots = store.setdefault("slots", {})
+    slots[str(slot)] = {
+        "updated_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "config": config_to_store,
+    }
+    _save_preset_store(store)
+    return jsonify({"status": "ok", "presets": _preset_summary()})
+
+
+@app.post("/api/presets/<int:slot>/load")
+def load_preset(slot: int) -> Response:
+    if slot not in {1, 2, 3}:
+        return _json_error("プリセット番号は 1 から 3 を指定してください。", 400)
+    store = _preset_store()
+    entry = store.get("slots", {}).get(str(slot))
+    if not isinstance(entry, dict) or not isinstance(entry.get("config"), dict):
+        return _json_error("そのプリセットはまだ保存されていません。", 404)
+    config_manager.save(entry["config"])
+    restart_processor()
+    return jsonify({"status": "ok", "config": config_manager.load(), "presets": _preset_summary()})
+
+
+@app.post("/api/camera/reinitialize")
+def reinitialize_camera() -> Response:
+    restart_processor()
+    return jsonify({"status": "ok", "message": "カメラを再初期化しました。"})
 
 
 @app.post("/api/config")

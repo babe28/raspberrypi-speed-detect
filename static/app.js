@@ -22,6 +22,18 @@ const rtspUrlLabelEl = document.getElementById("rtsp-url-label");
 const monitorLayoutButtonEl = document.getElementById("toggle-monitor-focus");
 const usbControlsPanelEl = document.getElementById("usb-controls-panel");
 const csiControlsPanelEl = document.getElementById("csi-controls-panel");
+const liveFpsPillEl = document.getElementById("live-fps-pill");
+const processorStatusEl = document.getElementById("processor-status");
+const comparePanelEl = document.getElementById("compare-panel");
+const compareRawEl = document.getElementById("compare-raw");
+const comparePerspectiveEl = document.getElementById("compare-perspective");
+const compareMaskEl = document.getElementById("compare-mask");
+const statInputFpsEl = document.getElementById("stat-input-fps");
+const statProcessFpsEl = document.getElementById("stat-process-fps");
+const statFrameMsEl = document.getElementById("stat-frame-ms");
+const statEventCountEl = document.getElementById("stat-event-count");
+const statAvgSpeedEl = document.getElementById("stat-avg-speed");
+const statMaxSpeedEl = document.getElementById("stat-max-speed");
 
 const state = {
   config: null,
@@ -35,6 +47,8 @@ const state = {
   lineBPoints: [],
   monitorFocus: false,
   recentEvents: [],
+  compareMode: false,
+  presets: [],
 };
 
 state.image.addEventListener("load", () => {
@@ -336,6 +350,13 @@ function setMonitorFocus(enabled) {
   monitorLayoutButtonEl.classList.toggle("active", enabled);
 }
 
+function setCompareMode(enabled) {
+  state.compareMode = enabled;
+  comparePanelEl.hidden = !enabled;
+  document.getElementById("toggle-compare-mode").classList.toggle("active", enabled);
+  document.getElementById("toggle-compare-mode").textContent = enabled ? "比較を閉じる" : "比較モード";
+}
+
 function fillForm(config) {
   state.config = config;
   const processing = config.processing;
@@ -398,6 +419,7 @@ function fillForm(config) {
   setValue("line-distance-m", measurement.line_crossing.distance_m);
   document.getElementById("roi-enabled").checked = config.roi.enabled;
   document.getElementById("debug-mode").checked = processing.debug_mode;
+  document.getElementById("show-fps-overlay").checked = Boolean(processing.show_fps_overlay);
   document.getElementById("show-mask-preview").checked = processing.show_mask_preview;
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
   document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
@@ -507,6 +529,7 @@ function syncFromTextarea(elementId, targetKey) {
 
 async function loadConfig() {
   fillForm(await fetchJson("/api/config"));
+  await loadPresets();
   setStatus("設定を読み込みました。");
 }
 
@@ -538,6 +561,130 @@ async function loadPerspectivePreview() {
     perspectivePreviewEl.removeAttribute("src");
     perspectivePreviewEl.classList.add("is-empty");
   }
+}
+
+function setImageFromBase64(element, imageBase64) {
+  if (!imageBase64) {
+    element.removeAttribute("src");
+    element.classList.add("is-empty");
+    return;
+  }
+  element.src = `data:image/jpeg;base64,${imageBase64}`;
+  element.classList.remove("is-empty");
+}
+
+async function loadProcessorStats() {
+  if (document.hidden) {
+    return;
+  }
+  const data = await fetchJson("/api/processor-stats");
+  const inputFps = Number(data.input_fps || 0);
+  const processFps = Number(data.process_fps || 0);
+  const frameMs = Number(data.last_frame_ms || 0);
+  liveFpsPillEl.textContent = `FPS ${inputFps > 0 ? inputFps.toFixed(1) : "--"}`;
+  statInputFpsEl.textContent = inputFps > 0 ? inputFps.toFixed(1) : "--";
+  statProcessFpsEl.textContent = processFps > 0 ? processFps.toFixed(1) : "--";
+  statFrameMsEl.textContent = frameMs > 0 ? `${frameMs.toFixed(1)} ms` : "--";
+  statEventCountEl.textContent = String(data.last_minute_count ?? 0);
+  statAvgSpeedEl.textContent = `${Number(data.last_minute_avg_speed || 0).toFixed(1)} km/h`;
+  statMaxSpeedEl.textContent = `${Number(data.last_minute_max_speed || 0).toFixed(1)} km/h`;
+  const processorBits = [];
+  processorBits.push(`frame skip ${data.frame_skip ?? 0}`);
+  if (data.process_interval) {
+    processorBits.push(`${data.process_interval} frame interval`);
+  }
+  if (data.processor_error) {
+    processorBits.push(`error: ${data.processor_error}`);
+  }
+  processorStatusEl.textContent = processorBits.join(" / ");
+}
+
+function buildConfigPayload() {
+  const sourceType = getValue("camera-type");
+  return {
+    camera: {
+      type: sourceType,
+      device: Number(getValue("camera-device")),
+      rtsp_enabled: sourceType === "rtsp",
+      rtsp_url: getValue("rtsp-url").trim(),
+      resolution: [Number(getValue("camera-width")), Number(getValue("camera-height"))],
+      fps: Number(getValue("camera-fps")),
+      usb_settings: buildUsbSettingsPayload(),
+      csi_settings: buildCsiSettingsPayload(),
+    },
+    roi: {
+      enabled: getChecked("roi-enabled"),
+      polygon: readJsonInput("roi-polygon", []),
+    },
+    measurement: buildMeasurementPayload(),
+    processing: buildProcessingPayload(),
+  };
+}
+
+async function loadDiagnosticFrames() {
+  if (!state.compareMode || document.hidden) {
+    return;
+  }
+  const data = await fetchJson("/api/diagnostics-frames");
+  const frames = data.frames || {};
+  setImageFromBase64(compareRawEl, frames.raw);
+  setImageFromBase64(comparePerspectiveEl, frames.perspective);
+  setImageFromBase64(compareMaskEl, frames.mask);
+}
+
+function updatePresetButtons() {
+  state.presets.forEach((preset) => {
+    const saveButton = document.getElementById(`preset-save-${preset.slot}`);
+    const loadButton = document.getElementById(`preset-load-${preset.slot}`);
+    if (!saveButton || !loadButton) {
+      return;
+    }
+    saveButton.textContent = preset.saved && preset.updated_at
+      ? `Preset ${preset.slot} 上書き`
+      : `Preset ${preset.slot} 保存`;
+    loadButton.textContent = preset.saved && preset.updated_at
+      ? `Preset ${preset.slot} 読込`
+      : `Preset ${preset.slot} 未保存`;
+    loadButton.disabled = !preset.saved;
+    loadButton.title = preset.updated_at ? `保存日時: ${preset.updated_at}` : "まだ保存されていません";
+  });
+}
+
+async function loadPresets() {
+  const data = await fetchJson("/api/presets");
+  state.presets = data.presets || [];
+  updatePresetButtons();
+}
+
+async function savePreset(slot) {
+  validateBeforeSave();
+  const data = await fetchJson(`/api/presets/${slot}/save`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ config: buildConfigPayload() }),
+  });
+  state.presets = data.presets || [];
+  updatePresetButtons();
+  setStatus(`Preset ${slot} に保存しました。`);
+}
+
+async function loadPreset(slot) {
+  const data = await fetchJson(`/api/presets/${slot}/load`, { method: "POST" });
+  state.presets = data.presets || [];
+  updatePresetButtons();
+  fillForm(data.config);
+  setStatus(`Preset ${slot} を読み込みました。`);
+  loadPerspectivePreview().catch(() => {});
+  loadProcessorStats().catch(() => {});
+  loadDiagnosticFrames().catch(() => {});
+}
+
+async function reinitializeCamera() {
+  const data = await fetchJson("/api/camera/reinitialize", { method: "POST" });
+  setStatus(data.message || "カメラを再初期化しました。");
+  loadPerspectivePreview().catch(() => {});
+  loadProcessorStats().catch(() => {});
+  loadDiagnosticFrames().catch(() => {});
 }
 
 function buildUsbSettingsPayload() {
@@ -589,6 +736,7 @@ function buildProcessingPayload() {
     track_max_distance: Number(getValue("track-max-distance")),
     track_max_missing_frames: Number(getValue("track-max-missing-frames")),
     debug_mode: getChecked("debug-mode"),
+    show_fps_overlay: getChecked("show-fps-overlay"),
     show_mask_preview: getChecked("show-mask-preview"),
     exclude_blue_floor: getChecked("exclude-blue-floor"),
     undistort_enabled: getChecked("undistort-enabled"),
@@ -685,26 +833,7 @@ function validateBeforeSave() {
 
 async function saveConfig() {
   validateBeforeSave();
-
-  const sourceType = getValue("camera-type");
-  const payload = {
-    camera: {
-      type: sourceType,
-      device: Number(getValue("camera-device")),
-      rtsp_enabled: sourceType === "rtsp",
-      rtsp_url: getValue("rtsp-url").trim(),
-      resolution: [Number(getValue("camera-width")), Number(getValue("camera-height"))],
-      fps: Number(getValue("camera-fps")),
-      usb_settings: buildUsbSettingsPayload(),
-      csi_settings: buildCsiSettingsPayload(),
-    },
-    roi: {
-      enabled: getChecked("roi-enabled"),
-      polygon: readJsonInput("roi-polygon", []),
-    },
-    measurement: buildMeasurementPayload(),
-    processing: buildProcessingPayload(),
-  };
+  const payload = buildConfigPayload();
 
   fillForm(await fetchJson("/api/config", {
     method: "POST",
@@ -712,6 +841,7 @@ async function saveConfig() {
     body: JSON.stringify(payload),
   }));
   setStatus("設定を保存しました。");
+  loadPresets().catch(() => {});
 }
 
 async function savePerspective() {
@@ -787,6 +917,15 @@ document.getElementById("clear-events").addEventListener("click", () => {
 document.getElementById("clear-current-points").addEventListener("click", clearCurrentModePoints);
 document.getElementById("clear-all-overlays").addEventListener("click", clearAllOverlays);
 monitorLayoutButtonEl.addEventListener("click", () => setMonitorFocus(!state.monitorFocus));
+document.getElementById("toggle-compare-mode").addEventListener("click", () => {
+  setCompareMode(!state.compareMode);
+  if (state.compareMode) {
+    loadDiagnosticFrames().catch((error) => setStatus(error.message, true));
+  }
+});
+document.getElementById("reinitialize-camera").addEventListener("click", () => {
+  reinitializeCamera().catch((error) => setStatus(error.message, true));
+});
 cameraTypeEl.addEventListener("change", applyCameraTypeUI);
 ["usb-auto-exposure", "usb-autofocus", "csi-auto-exposure", "csi-auto-white-balance"].forEach((id) => {
   document.getElementById(id).addEventListener("change", applyCameraTypeUI);
@@ -836,10 +975,25 @@ document.getElementById("apply-blue-picker").addEventListener("click", applyBlue
 document.getElementById("blue-color-picker").addEventListener("input", applyBluePickerToInputs);
 document.getElementById("blue-tolerance").addEventListener("input", applyBluePickerToInputs);
 
+[1, 2, 3].forEach((slot) => {
+  document.getElementById(`preset-save-${slot}`).addEventListener("click", () => {
+    savePreset(slot).catch((error) => setStatus(error.message, true));
+  });
+  document.getElementById(`preset-load-${slot}`).addEventListener("click", () => {
+    loadPreset(slot).catch((error) => setStatus(error.message, true));
+  });
+});
+
 setMode("pan");
 setMonitorFocus(false);
+setCompareMode(false);
 loadConfig().catch((error) => setStatus(error.message, true));
 loadRecentEvents().catch((error) => setStatus(error.message, true));
+loadProcessorStats().catch(() => {});
 window.setInterval(() => {
   loadRecentEvents().catch(() => {});
 }, 3000);
+window.setInterval(() => {
+  loadProcessorStats().catch(() => {});
+  loadDiagnosticFrames().catch(() => {});
+}, 2000);

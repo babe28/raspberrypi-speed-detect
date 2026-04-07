@@ -87,6 +87,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "track_max_distance": 80,
         "track_max_missing_frames": 8,
         "debug_mode": False,
+        "show_fps_overlay": False,
         "show_mask_preview": True,
         "undistort_enabled": True,
         "manual_distortion": 0.0,
@@ -271,6 +272,7 @@ class ConfigManager:
             processing.get("track_max_missing_frames", 8)
         )
         processing["debug_mode"] = bool(processing.get("debug_mode", False))
+        processing["show_fps_overlay"] = bool(processing.get("show_fps_overlay", False))
         processing["show_mask_preview"] = bool(processing.get("show_mask_preview", True))
         processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
         processing["manual_distortion"] = max(

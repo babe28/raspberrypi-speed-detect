@@ -68,6 +68,7 @@ class SpeedEstimator:
         self.open_iterations = int(processing["open_iterations"])
         self.dilate_iterations = int(processing["dilate_iterations"])
         self.debug_mode = bool(processing["debug_mode"])
+        self.show_fps_overlay = bool(processing.get("show_fps_overlay", False))
         self.show_mask_preview = bool(processing.get("show_mask_preview", True))
         self.undistort_enabled = bool(processing["undistort_enabled"])
         self.manual_distortion = float(processing.get("manual_distortion", 0.0))
@@ -105,30 +106,51 @@ class SpeedEstimator:
         self.csv_writer: csv.writer | None = None
         self.csv_handle = None
         self._setup_logging()
+        self.latest_display_frame: np.ndarray | None = None
+        self.latest_detection_frame: np.ndarray | None = None
+        self.latest_mask_frame: np.ndarray | None = None
+        self.input_fps_ema = 0.0
+        self.process_fps_ema = 0.0
+        self.last_frame_ms = 0.0
+        self.last_input_timestamp = 0.0
+        self.last_processed_timestamp = 0.0
 
     def process(self, frame: np.ndarray) -> tuple[np.ndarray, list[dict[str, Any]]]:
+        process_started = time.perf_counter()
+        now = time.time()
+        self._update_input_fps(now)
         display_frame = self._apply_undistort(frame)
         display_frame = self._apply_image_correction(display_frame)
         detection_frame = self._apply_perspective(display_frame)
         self.frame_index += 1
         self._prune_measurements()
         mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
+        processed_this_frame = False
         if not self.detection_enabled:
+            self._store_debug_frames(display_frame, detection_frame, mask)
             annotated = self._annotate(display_frame, mask, [])
+            self._finalize_metrics(process_started, processed_this_frame, now)
             return annotated, []
         if self.frame_skip > 0 and self.frame_index > self.warmup_frames:
             process_interval = self.frame_skip + 1
             active_index = self.frame_index - self.warmup_frames - 1
             if active_index % process_interval != 0:
+                self._store_debug_frames(display_frame, detection_frame, mask)
                 annotated = self._annotate(display_frame, mask, [])
+                self._finalize_metrics(process_started, processed_this_frame, now)
                 return annotated, []
         mask = self._motion_mask(detection_frame)
         if self.frame_index <= self.warmup_frames:
+            self._store_debug_frames(display_frame, detection_frame, mask)
             annotated = self._annotate(display_frame, mask, [])
+            self._finalize_metrics(process_started, processed_this_frame, now)
             return annotated, []
+        processed_this_frame = True
         detections = self._find_detections(mask)
         events = self._update_tracks(detections)
+        self._store_debug_frames(display_frame, detection_frame, mask)
         annotated = self._annotate(display_frame, mask, events)
+        self._finalize_metrics(process_started, processed_this_frame, now)
         return annotated, events
 
     def close(self) -> None:
@@ -455,6 +477,49 @@ class SpeedEstimator:
         event["subdued"] = True
         return event
 
+    def _update_input_fps(self, now: float) -> None:
+        if self.last_input_timestamp > 0:
+            dt = now - self.last_input_timestamp
+            if dt > 0:
+                self.input_fps_ema = self._smooth_metric(self.input_fps_ema, 1.0 / dt)
+        self.last_input_timestamp = now
+
+    def _finalize_metrics(
+        self, process_started: float, processed_this_frame: bool, now: float
+    ) -> None:
+        self.last_frame_ms = (time.perf_counter() - process_started) * 1000.0
+        if processed_this_frame:
+            if self.last_processed_timestamp > 0:
+                dt = now - self.last_processed_timestamp
+                if dt > 0:
+                    self.process_fps_ema = self._smooth_metric(self.process_fps_ema, 1.0 / dt)
+            self.last_processed_timestamp = now
+
+    def _store_debug_frames(
+        self, display_frame: np.ndarray, detection_frame: np.ndarray, mask: np.ndarray
+    ) -> None:
+        self.latest_display_frame = display_frame.copy()
+        self.latest_detection_frame = detection_frame.copy()
+        self.latest_mask_frame = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
+
+    def _smooth_metric(self, current: float, new_value: float, alpha: float = 0.2) -> float:
+        if current <= 0:
+            return new_value
+        return (current * (1.0 - alpha)) + (new_value * alpha)
+
+    def runtime_metrics(self) -> dict[str, float | int | bool]:
+        process_interval = self.frame_skip + 1
+        return {
+            "input_fps": round(self.input_fps_ema, 2),
+            "process_fps": round(self.process_fps_ema, 2),
+            "last_frame_ms": round(self.last_frame_ms, 2),
+            "frame_index": self.frame_index,
+            "frame_skip": self.frame_skip,
+            "process_interval": process_interval,
+            "detection_enabled": self.detection_enabled,
+            "debug_mode": self.debug_mode,
+        }
+
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:
         nearest: Track | None = None
         nearest_distance = self.effective_track_max_distance
@@ -526,6 +591,24 @@ class SpeedEstimator:
                 (12, annotated.shape[0] - 16),
                 cv2.FONT_HERSHEY_SIMPLEX,
                 0.45,
+                (255, 255, 255),
+                2,
+                cv2.LINE_AA,
+            )
+        if self.show_fps_overlay:
+            fps_text = (
+                f"FPS {self.input_fps_ema:.1f} / PROC {self.process_fps_ema:.1f}"
+                if self.process_fps_ema > 0
+                else f"FPS {self.input_fps_ema:.1f}"
+            )
+            if self.debug_mode:
+                fps_text += f" / {self.last_frame_ms:.1f} ms"
+            cv2.putText(
+                annotated,
+                fps_text,
+                (12, 28),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.65,
                 (255, 255, 255),
                 2,
                 cv2.LINE_AA,
