@@ -71,6 +71,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
     "processing": {
         "detection_enabled": False,
         "downscale_factor": 0.5,
+        "frame_skip": 0,
         "min_contour_area": 500,
         "max_contour_area": 50000,
         "min_speed_kmh": 0.0,
@@ -242,6 +243,7 @@ class ConfigManager:
         processing = config["processing"]
         processing["detection_enabled"] = bool(processing.get("detection_enabled", False))
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
+        processing["frame_skip"] = max(0, int(processing.get("frame_skip", 0)))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
         processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
         processing["min_speed_kmh"] = max(0.0, float(processing.get("min_speed_kmh", 0.0)))
@@ -319,6 +321,8 @@ class ConfigManager:
 
         if not 0.1 <= processing["downscale_factor"] <= 1.0:
             raise ValueError("downscale_factor must be between 0.1 and 1.0.")
+        if processing["frame_skip"] < 0 or processing["frame_skip"] > 10:
+            raise ValueError("frame_skip must be between 0 and 10.")
         if processing["min_contour_area"] <= 0:
             raise ValueError("min_contour_area must be at least 1.")
         if processing["max_contour_area"] < processing["min_contour_area"]:

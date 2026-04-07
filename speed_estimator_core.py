@@ -57,6 +57,7 @@ class SpeedEstimator:
         self.line_distance_m = float(self.line_crossing["distance_m"])
         self.min_contour_area = int(processing["min_contour_area"])
         self.max_contour_area = int(processing["max_contour_area"])
+        self.frame_skip = int(processing.get("frame_skip", 0))
         self.min_speed_kmh = float(processing.get("min_speed_kmh", 0.0))
         self.track_max_distance = float(processing["track_max_distance"])
         self.track_max_missing_frames = int(processing["track_max_missing_frames"])
@@ -109,15 +110,19 @@ class SpeedEstimator:
         display_frame = self._apply_undistort(frame)
         display_frame = self._apply_image_correction(display_frame)
         detection_frame = self._apply_perspective(display_frame)
-        if self.detection_enabled:
-            mask = self._motion_mask(detection_frame)
-        else:
-            mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
         self.frame_index += 1
         self._prune_measurements()
+        mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
         if not self.detection_enabled:
             annotated = self._annotate(display_frame, mask, [])
             return annotated, []
+        if self.frame_skip > 0 and self.frame_index > self.warmup_frames:
+            process_interval = self.frame_skip + 1
+            active_index = self.frame_index - self.warmup_frames - 1
+            if active_index % process_interval != 0:
+                annotated = self._annotate(display_frame, mask, [])
+                return annotated, []
+        mask = self._motion_mask(detection_frame)
         if self.frame_index <= self.warmup_frames:
             annotated = self._annotate(display_frame, mask, [])
             return annotated, []

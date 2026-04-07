@@ -373,6 +373,7 @@ function fillForm(config) {
   setOptionalValue("csi-colour-gain-blue", csiSettings.colour_gain_blue);
 
   setValue("downscale-factor", processing.downscale_factor);
+  setValue("frame-skip", processing.frame_skip ?? 0);
   document.getElementById("detection-enabled").checked = Boolean(processing.detection_enabled);
   setValue("min-contour-area", processing.min_contour_area);
   setValue("max-contour-area", processing.max_contour_area);
@@ -572,6 +573,7 @@ function buildProcessingPayload() {
   return {
     detection_enabled: getChecked("detection-enabled"),
     downscale_factor: Number(getValue("downscale-factor")),
+    frame_skip: Number(getValue("frame-skip")),
     min_contour_area: Number(getValue("min-contour-area")),
     max_contour_area: Number(getValue("max-contour-area")),
     min_speed_kmh: Number(getValue("min-speed-kmh")),
@@ -638,6 +640,7 @@ function validateBeforeSave() {
   const minSpeed = Number(getValue("min-speed-kmh"));
   const maxSpeed = Number(getValue("max-speed-kmh"));
   const downscale = Number(getValue("downscale-factor"));
+  const frameSkip = Number(getValue("frame-skip"));
   const trackingDirection = getValue("tracking-direction");
   const csiExposureTime = getOptionalNumber("csi-exposure-time-us");
   const csiAnalogueGain = getOptionalNumber("csi-analogue-gain");
@@ -659,6 +662,9 @@ function validateBeforeSave() {
   }
   if (downscale < 0.1 || downscale > 1.0) {
     throw new Error("ダウンスケールは 0.1 から 1.0 の範囲で入力してください。");
+  }
+  if (!Number.isInteger(frameSkip) || frameSkip < 0 || frameSkip > 10) {
+    throw new Error("フレームスキップは 0 から 10 の整数で入力してください。");
   }
   if (minArea <= 0 || maxArea < minArea) {
     throw new Error("輪郭サイズは最小 1 以上、最大は最小以上にしてください。");

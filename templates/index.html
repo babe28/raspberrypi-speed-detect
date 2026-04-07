@@ -332,6 +332,7 @@
             <label>高さ<input id="camera-height" type="number" min="1" step="1"></label>
             <label>FPS<input id="camera-fps" type="number" min="1" step="1"></label>
             <label>ダウンスケール<input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1"></label>
+            <label>フレームスキップ<input id="frame-skip" type="number" min="0" max="10" step="1"></label>
             <label id="rtsp-url-label" class="span-two">RTSP URL
               <input id="rtsp-url" type="text" placeholder="rtsp://user:pass@camera/stream">
             </label>
@@ -418,6 +419,7 @@
         <article class="help-card"><h3>入力ソース切替</h3><p>USB / CSI / RTSP はプルダウンで切り替えます。RTSP 選択時だけ URL が必須です。</p></article>
         <article class="help-card"><h3>編集の使い方</h3><p>スナップショット上で ROI、Perspective、Scale、Line A/B を編集します。監視レイアウトに切り替えると編集パネルを小さくしてライブとログを広く表示できます。</p></article>
         <article class="help-card"><h3>ダウンスケール</h3><p>処理前に画像を縮小して負荷を下げます。小さくするほど軽くなりますが、細い対象や遠距離の対象は輪郭が消えやすくなります。</p></article>
+        <article class="help-card"><h3>フレームスキップ</h3><p>0 なら毎フレーム処理、1 なら 1 枚おきです。CPU 負荷を下げる代わりに、Tracking の滑らかさや Line Crossing の通過時刻精度は少し落ちます。</p></article>
         <article class="help-card"><h3>最小輪郭 / 最大輪郭</h3><p>小さすぎるノイズや大きすぎる誤検知を抑える基本パラメータです。デバッグモードでは輪郭サイズも表示されます。</p></article>
         <article class="help-card"><h3>ウォームアップ</h3><p>起動直後の背景学習に使うフレーム数です。この間は検知結果が安定しにくいので、照明変化が大きい環境では少し長めが安全です。</p></article>
         <article class="help-card"><h3>しきい値</h3><p>背景差分後の二値化強度です。上げるとノイズは減り、上げすぎると対象も消えます。</p></article>
