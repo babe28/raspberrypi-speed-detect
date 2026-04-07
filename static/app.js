@@ -265,6 +265,7 @@ function fillForm(config) {
   setValue("camera-height", config.camera.resolution[1]);
   setValue("camera-fps", config.camera.fps);
   setValue("downscale-factor", processing.downscale_factor);
+  document.getElementById("detection-enabled").checked = Boolean(processing.detection_enabled);
   setValue("min-contour-area", processing.min_contour_area);
   setValue("max-contour-area", processing.max_contour_area);
   setValue("min-speed-kmh", processing.min_speed_kmh ?? 0);
@@ -291,6 +292,8 @@ function fillForm(config) {
   document.getElementById("exclude-blue-floor").checked = processing.exclude_blue_floor;
   document.getElementById("undistort-enabled").checked = processing.undistort_enabled;
   document.getElementById("perspective-enabled").checked = processing.perspective_enabled;
+  setValue("brightness-offset", processing.brightness_offset ?? 0);
+  setValue("contrast-gain", processing.contrast_gain ?? 1.0);
   document.getElementById("blur-enabled").checked = processing.blur_enabled;
   document.getElementById("morphology-enabled").checked = processing.morphology_enabled;
 
@@ -435,6 +438,7 @@ async function loadPerspectivePreview() {
 
 function buildProcessingPayload() {
   return {
+    detection_enabled: getChecked("detection-enabled"),
     downscale_factor: Number(getValue("downscale-factor")),
     min_contour_area: Number(getValue("min-contour-area")),
     max_contour_area: Number(getValue("max-contour-area")),
@@ -455,6 +459,8 @@ function buildProcessingPayload() {
     exclude_blue_floor: getChecked("exclude-blue-floor"),
     undistort_enabled: getChecked("undistort-enabled"),
     perspective_enabled: getChecked("perspective-enabled"),
+    brightness_offset: Number(getValue("brightness-offset")),
+    contrast_gain: Number(getValue("contrast-gain")),
     blur_enabled: getChecked("blur-enabled"),
     morphology_enabled: getChecked("morphology-enabled"),
     blue_hsv_low: [

@@ -39,6 +39,7 @@ class SpeedEstimator:
         self.config = config
         processing = config["processing"]
         measurement = config["measurement"]
+        self.detection_enabled = bool(processing.get("detection_enabled", False))
         self.scale_ppm = float(config["scale"]["ppm"])
         self.max_speed_kmh = float(processing["max_speed_kmh"])
         self.measurement_mode = str(measurement["mode"])
@@ -66,22 +67,18 @@ class SpeedEstimator:
         self.show_mask_preview = bool(processing.get("show_mask_preview", True))
         self.undistort_enabled = bool(processing["undistort_enabled"])
         self.perspective_enabled = bool(processing["perspective_enabled"])
+        self.brightness_offset = int(processing.get("brightness_offset", 0))
+        self.contrast_gain = float(processing.get("contrast_gain", 1.0))
         self.blur_enabled = bool(processing["blur_enabled"])
         self.morphology_enabled = bool(processing["morphology_enabled"])
         self.exclude_blue_floor = bool(processing["exclude_blue_floor"])
         self.blue_hsv_low = np.array(processing["blue_hsv_low"], dtype=np.uint8)
         self.blue_hsv_high = np.array(processing["blue_hsv_high"], dtype=np.uint8)
-        self.effective_min_contour_area = (
-            max(25, int(self.min_contour_area * 0.35)) if self.debug_mode else self.min_contour_area
-        )
-        self.effective_track_max_distance = (
-            self.track_max_distance * 1.35 if self.debug_mode else self.track_max_distance
-        )
+        self.effective_min_contour_area = self.min_contour_area
+        self.effective_track_max_distance = self.track_max_distance
         if self.measurement_mode == "line_crossing":
             self.effective_track_max_distance *= 1.2
-        self.effective_threshold_value = (
-            max(80, int(self.threshold_value * 0.85)) if self.debug_mode else self.threshold_value
-        )
+        self.effective_threshold_value = self.threshold_value
         self.frame_index = 0
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2(
             history=int(processing["background_history"]),
@@ -106,10 +103,17 @@ class SpeedEstimator:
 
     def process(self, frame: np.ndarray) -> tuple[np.ndarray, list[dict[str, Any]]]:
         display_frame = self._apply_undistort(frame)
+        display_frame = self._apply_image_correction(display_frame)
         detection_frame = self._apply_perspective(display_frame)
-        mask = self._motion_mask(detection_frame)
+        if self.detection_enabled:
+            mask = self._motion_mask(detection_frame)
+        else:
+            mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
         self.frame_index += 1
         self._prune_measurements()
+        if not self.detection_enabled:
+            annotated = self._annotate(display_frame, mask, [])
+            return annotated, []
         if self.frame_index <= self.warmup_frames:
             annotated = self._annotate(display_frame, mask, [])
             return annotated, []
@@ -138,6 +142,11 @@ class SpeedEstimator:
                 (corrected.shape[1], corrected.shape[0]),
             )
         return corrected
+
+    def _apply_image_correction(self, frame: np.ndarray) -> np.ndarray:
+        if abs(self.contrast_gain - 1.0) < 1e-6 and self.brightness_offset == 0:
+            return frame
+        return cv2.convertScaleAbs(frame, alpha=self.contrast_gain, beta=self.brightness_offset)
 
     def _motion_mask(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)

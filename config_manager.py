@@ -43,6 +43,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         },
     },
     "processing": {
+        "detection_enabled": False,
         "downscale_factor": 0.5,
         "min_contour_area": 500,
         "max_contour_area": 50000,
@@ -62,6 +63,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "show_mask_preview": True,
         "undistort_enabled": True,
         "perspective_enabled": True,
+        "brightness_offset": 0,
+        "contrast_gain": 1.0,
         "blur_enabled": True,
         "morphology_enabled": True,
         "exclude_blue_floor": False,
@@ -169,6 +172,7 @@ class ConfigManager:
         }
 
         processing = config["processing"]
+        processing["detection_enabled"] = bool(processing.get("detection_enabled", False))
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
         processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
@@ -200,6 +204,8 @@ class ConfigManager:
         processing["show_mask_preview"] = bool(processing.get("show_mask_preview", True))
         processing["undistort_enabled"] = bool(processing.get("undistort_enabled", True))
         processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
+        processing["brightness_offset"] = int(processing.get("brightness_offset", 0))
+        processing["contrast_gain"] = max(0.1, float(processing.get("contrast_gain", 1.0)))
         processing["blur_enabled"] = bool(processing.get("blur_enabled", True))
         processing["morphology_enabled"] = bool(processing.get("morphology_enabled", True))
         processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))
