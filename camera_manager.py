@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import cv2
@@ -45,10 +46,40 @@ class CameraManager:
         if not self.rtsp_url:
             raise RuntimeError("RTSP is enabled but rtsp_url is empty")
 
-        self.cap = cv2.VideoCapture(self.rtsp_url)
-        self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        if not self.cap.isOpened():
-            raise RuntimeError("RTSP stream could not be opened")
+        candidates = [self.rtsp_url]
+        if "rtsp_transport=" not in self.rtsp_url:
+            separator = "&" if "?" in self.rtsp_url else "?"
+            candidates.append(f"{self.rtsp_url}{separator}rtsp_transport=tcp")
+
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;tcp|buffer_size;1024000"
+        backends = [cv2.CAP_FFMPEG, cv2.CAP_ANY]
+        last_error = "RTSP stream could not be opened"
+
+        for url in candidates:
+            for backend in backends:
+                cap = cv2.VideoCapture(url, backend)
+                if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                if hasattr(cv2, "CAP_PROP_OPEN_TIMEOUT_MSEC"):
+                    cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
+                if hasattr(cv2, "CAP_PROP_READ_TIMEOUT_MSEC"):
+                    cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)
+
+                if not cap.isOpened():
+                    cap.release()
+                    continue
+
+                ok, frame = cap.read()
+                if ok and frame is not None:
+                    self.cap = cap
+                    return
+
+                last_error = f"RTSP opened but no frames were received: backend={backend}"
+                cap.release()
+
+        raise RuntimeError(
+            f"{last_error}. URL={self.rtsp_url}. Try tcp transport and verify the stream with ffplay/vlc."
+        )
 
     def read(self) -> tuple[bool, np.ndarray | None]:
         frame: np.ndarray | None

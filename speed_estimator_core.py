@@ -32,6 +32,7 @@ class OverlayMeasurement:
     track_id: int
     color: tuple[int, int, int]
     subdued: bool = False
+    kind: str = "speed"
 
 
 class SpeedEstimator:
@@ -251,6 +252,7 @@ class SpeedEstimator:
                 self.next_track_id += 1
             else:
                 previous_centroid = track.centroid
+                previous_timestamp = track.timestamp
                 speed_kmh, speed_px_s = self._estimate_speed(track, detection["centroid"], now)
                 track.centroid = detection["centroid"]
                 track.timestamp = now
@@ -263,7 +265,7 @@ class SpeedEstimator:
                     measurement_event = self._maybe_measure_line_crossing(
                         track,
                         previous_centroid,
-                        track.timestamp,
+                        previous_timestamp,
                         detection["centroid"],
                         now,
                     )
@@ -289,6 +291,14 @@ class SpeedEstimator:
                 if event is None:
                     continue
                 events.append(event)
+                self._upsert_active_measurement(
+                    track_id=track.track_id,
+                    centroid=track.centroid,
+                    label=event["speed_label"],
+                    color=event["color"],
+                    subdued=bool(event.get("subdued", False)),
+                    kind="tracking",
+                )
                 if not event.get("subdued", False):
                     self._log_event(event, now)
 
@@ -349,15 +359,13 @@ class SpeedEstimator:
         track.crossed_lines.clear()
         if event is None:
             return None
-        self.active_measurements.append(
-            OverlayMeasurement(
-                label=event["speed_label"],
-                centroid=current_centroid,
-                expires_at=now + self.overlay_hold_seconds,
-                track_id=track.track_id,
-                color=event["color"],
-                subdued=bool(event.get("subdued", False)),
-            )
+        self._upsert_active_measurement(
+            track_id=track.track_id,
+            centroid=current_centroid,
+            label=event["speed_label"],
+            color=event["color"],
+            subdued=bool(event.get("subdued", False)),
+            kind="line_crossing",
         )
         track.speed_kmh = speed_kmh
         track.speed_px_s = 0.0
@@ -543,6 +551,37 @@ class SpeedEstimator:
                 measurement.color,
                 subdued=measurement.subdued,
             )
+
+    def _upsert_active_measurement(
+        self,
+        track_id: int,
+        centroid: tuple[float, float],
+        label: str,
+        color: tuple[int, int, int],
+        subdued: bool,
+        kind: str,
+    ) -> None:
+        expires_at = time.time() + self.overlay_hold_seconds
+        for measurement in self.active_measurements:
+            if measurement.track_id == track_id and measurement.kind == kind:
+                measurement.centroid = centroid
+                measurement.label = label
+                measurement.color = color
+                measurement.subdued = subdued
+                measurement.expires_at = expires_at
+                return
+
+        self.active_measurements.append(
+            OverlayMeasurement(
+                label=label,
+                centroid=centroid,
+                expires_at=expires_at,
+                track_id=track_id,
+                color=color,
+                subdued=subdued,
+                kind=kind,
+            )
+        )
 
     def _prune_measurements(self) -> None:
         now = time.time()
