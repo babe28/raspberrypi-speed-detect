@@ -151,9 +151,11 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
                     "timestamp": now,
                     "timestamp_label": datetime.fromtimestamp(now).strftime("%H:%M:%S"),
                     "id": track_id,
+                    "mode": str(event.get("mode", "tracking")),
                     "speed_kmh": round(speed_kmh, 1),
                     "speed_px_s": round(float(event.get("speed_px_s", 0.0)), 1),
                     "speed_label": event.get("speed_label", f"{speed_kmh:.1f} km/h"),
+                    "area": round(float(event.get("area", 0.0)), 1),
                     "center_x": round(float(center_x), 1),
                     "center_y": round(float(center_y), 1),
                 }

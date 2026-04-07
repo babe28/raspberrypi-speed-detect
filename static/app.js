@@ -272,7 +272,7 @@ function drawCanvas() {
 function renderRecentEvents(events) {
   if (!events.length) {
     eventLogBodyEl.innerHTML = `
-      <tr><td colspan="4" class="empty-row">まだ検知ログはありません。</td></tr>
+      <tr><td colspan="7" class="empty-row">まだ検知ログはありません。</td></tr>
     `;
     return;
   }
@@ -283,7 +283,10 @@ function renderRecentEvents(events) {
         <tr>
           <td>${event.timestamp_label}</td>
           <td>${event.id}</td>
+          <td>${event.mode === "line_crossing" ? "Line Crossing" : "Tracking"}</td>
           <td>${event.speed_label}</td>
+          <td>${Number.isFinite(event.speed_px_s) ? event.speed_px_s.toFixed(1) : "-"}</td>
+          <td>${Number.isFinite(event.area) ? event.area.toFixed(1) : "-"}</td>
           <td>${event.center_x}, ${event.center_y}</td>
         </tr>
       `,

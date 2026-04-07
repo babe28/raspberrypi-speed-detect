@@ -41,7 +41,6 @@
             <canvas id="snapshot-canvas" width="1280" height="720"></canvas>
             <div class="canvas-overlay">
               <p id="mode-badge" class="mode-badge">モードを選択してください</p>
-              <p class="canvas-help">点を打って ROI、Perspective、Scale、Line A/B を編集します。監視レイアウトに切り替えるとこのパネルを小さくしてライブとログを広く表示します。</p>
             </div>
           </div>
 
@@ -279,13 +278,16 @@
                 <tr>
                   <th>時刻</th>
                   <th>ID</th>
+                  <th>Mode</th>
                   <th>速度</th>
+                  <th>px/s</th>
+                  <th>Area</th>
                   <th>座標</th>
                 </tr>
               </thead>
               <tbody id="event-log-body">
                 <tr>
-                  <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
+                  <td colspan="7" class="empty-row">まだ検知ログはありません。</td>
                 </tr>
               </tbody>
             </table>
@@ -406,6 +408,7 @@
       </div>
       <div class="help-grid">
         <article class="help-card"><h3>入力ソース切替</h3><p>USB / CSI / RTSP はプルダウンで切り替えます。RTSP 選択時だけ URL が必須です。</p></article>
+        <article class="help-card"><h3>編集の使い方</h3><p>スナップショット上で ROI、Perspective、Scale、Line A/B を編集します。監視レイアウトに切り替えると編集パネルを小さくしてライブとログを広く表示できます。</p></article>
         <article class="help-card"><h3>最小輪郭 / 最大輪郭</h3><p>小さすぎるノイズや大きすぎる誤検知を抑える基本パラメータです。デバッグモードでは輪郭サイズも表示されます。</p></article>
         <article class="help-card"><h3>しきい値</h3><p>背景差分後の二値化強度です。上げるとノイズは減り、上げすぎると対象も消えます。</p></article>
         <article class="help-card"><h3>背景履歴 / 背景しきい値</h3><p>背景モデルの追従速度と感度に効きます。環境変化が大きい場合は履歴を短めにします。</p></article>
@@ -414,7 +417,6 @@
         <article class="help-card"><h3>追跡距離 / 見失い許容</h3><p>フレーム間の紐付け条件です。速い被写体では距離を少し広げると安定しやすくなります。</p></article>
         <article class="help-card"><h3>Line Crossing</h3><p>Line A と Line B の通過時間差で速度を算出します。distance_m には2本間の実距離を入れます。</p></article>
         <article class="help-card"><h3>ppm / px/s</h3><p>Scale 未設定時は px/s 表示です。実速度にしたい場合は 2点と既知距離を入れて ppm を決めます。</p></article>
-        <article class="help-card"><h3>監視レイアウト</h3><p>編集後は監視レイアウトに切り替えると、スナップショットを小さくしてライブと最新ログを見やすくできます。</p></article>
       </div>
     </section>
   </main>
