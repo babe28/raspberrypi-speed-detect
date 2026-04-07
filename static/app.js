@@ -18,6 +18,8 @@ const cameraTypeEl = document.getElementById("camera-type");
 const cameraDeviceLabelEl = document.getElementById("camera-device-label");
 const rtspUrlLabelEl = document.getElementById("rtsp-url-label");
 const monitorLayoutButtonEl = document.getElementById("toggle-monitor-focus");
+const usbControlsPanelEl = document.getElementById("usb-controls-panel");
+const csiControlsPanelEl = document.getElementById("csi-controls-panel");
 
 const state = {
   config: null,
@@ -54,6 +56,19 @@ function setValue(id, value) {
 
 function getChecked(id) {
   return document.getElementById(id).checked;
+}
+
+function setOptionalValue(id, value) {
+  document.getElementById(id).value = value ?? "";
+}
+
+function getOptionalNumber(id) {
+  const raw = document.getElementById(id).value.trim();
+  if (!raw) {
+    return null;
+  }
+  const value = Number(raw);
+  return Number.isFinite(value) ? value : null;
 }
 
 function roundPoint([x, y]) {
@@ -276,13 +291,32 @@ function renderRecentEvents(events) {
     .join("");
 }
 
+function setDisabled(ids, disabled) {
+  ids.forEach((id) => {
+    document.getElementById(id).disabled = disabled;
+  });
+}
+
 function applyCameraTypeUI() {
   const sourceType = getValue("camera-type");
   const isUsb = sourceType === "usb";
+  const isCsi = sourceType === "csi";
   const isRtsp = sourceType === "rtsp";
 
   cameraDeviceLabelEl.hidden = !isUsb;
   rtspUrlLabelEl.hidden = !isRtsp;
+  usbControlsPanelEl.hidden = !isUsb;
+  csiControlsPanelEl.hidden = !isCsi;
+
+  const usbAutoExposure = getChecked("usb-auto-exposure");
+  const usbAutofocus = getChecked("usb-autofocus");
+  const csiAutoExposure = getChecked("csi-auto-exposure");
+  const csiAutoWhiteBalance = getChecked("csi-auto-white-balance");
+
+  setDisabled(["usb-exposure"], usbAutoExposure || !isUsb);
+  setDisabled(["usb-focus"], usbAutofocus || !isUsb);
+  setDisabled(["csi-exposure-time-us", "csi-analogue-gain"], csiAutoExposure || !isCsi);
+  setDisabled(["csi-colour-gain-red", "csi-colour-gain-blue"], csiAutoWhiteBalance || !isCsi);
 }
 
 function setMonitorFocus(enabled) {
@@ -296,13 +330,38 @@ function fillForm(config) {
   state.config = config;
   const processing = config.processing;
   const measurement = config.measurement;
+  const camera = config.camera;
+  const usbSettings = camera.usb_settings || {};
+  const csiSettings = camera.csi_settings || {};
 
-  setValue("camera-type", config.camera.type);
-  setValue("camera-device", config.camera.device);
-  setValue("rtsp-url", config.camera.rtsp_url || "");
-  setValue("camera-width", config.camera.resolution[0]);
-  setValue("camera-height", config.camera.resolution[1]);
-  setValue("camera-fps", config.camera.fps);
+  setValue("camera-type", camera.type);
+  setValue("camera-device", camera.device);
+  setValue("rtsp-url", camera.rtsp_url || "");
+  setValue("camera-width", camera.resolution[0]);
+  setValue("camera-height", camera.resolution[1]);
+  setValue("camera-fps", camera.fps);
+
+  document.getElementById("usb-auto-exposure").checked = Boolean(usbSettings.auto_exposure);
+  document.getElementById("usb-autofocus").checked = Boolean(usbSettings.autofocus);
+  setOptionalValue("usb-exposure", usbSettings.exposure);
+  setOptionalValue("usb-brightness", usbSettings.brightness);
+  setOptionalValue("usb-contrast", usbSettings.contrast);
+  setOptionalValue("usb-saturation", usbSettings.saturation);
+  setOptionalValue("usb-sharpness", usbSettings.sharpness);
+  setOptionalValue("usb-gain", usbSettings.gain);
+  setOptionalValue("usb-focus", usbSettings.focus);
+
+  document.getElementById("csi-auto-exposure").checked = Boolean(csiSettings.auto_exposure);
+  document.getElementById("csi-auto-white-balance").checked = Boolean(csiSettings.auto_white_balance);
+  setOptionalValue("csi-exposure-time-us", csiSettings.exposure_time_us);
+  setOptionalValue("csi-analogue-gain", csiSettings.analogue_gain);
+  setValue("csi-brightness", csiSettings.brightness ?? 0);
+  setValue("csi-contrast", csiSettings.contrast ?? 1.0);
+  setValue("csi-saturation", csiSettings.saturation ?? 1.0);
+  setValue("csi-sharpness", csiSettings.sharpness ?? 1.0);
+  setOptionalValue("csi-colour-gain-red", csiSettings.colour_gain_red);
+  setOptionalValue("csi-colour-gain-blue", csiSettings.colour_gain_blue);
+
   setValue("downscale-factor", processing.downscale_factor);
   document.getElementById("detection-enabled").checked = Boolean(processing.detection_enabled);
   setValue("min-contour-area", processing.min_contour_area);
@@ -466,6 +525,35 @@ async function loadPerspectivePreview() {
   }
 }
 
+function buildUsbSettingsPayload() {
+  return {
+    auto_exposure: getChecked("usb-auto-exposure"),
+    exposure: getOptionalNumber("usb-exposure"),
+    brightness: getOptionalNumber("usb-brightness"),
+    contrast: getOptionalNumber("usb-contrast"),
+    saturation: getOptionalNumber("usb-saturation"),
+    sharpness: getOptionalNumber("usb-sharpness"),
+    gain: getOptionalNumber("usb-gain"),
+    autofocus: getChecked("usb-autofocus"),
+    focus: getOptionalNumber("usb-focus"),
+  };
+}
+
+function buildCsiSettingsPayload() {
+  return {
+    auto_exposure: getChecked("csi-auto-exposure"),
+    exposure_time_us: getOptionalNumber("csi-exposure-time-us"),
+    analogue_gain: getOptionalNumber("csi-analogue-gain"),
+    brightness: Number(getValue("csi-brightness")),
+    contrast: Number(getValue("csi-contrast")),
+    saturation: Number(getValue("csi-saturation")),
+    sharpness: Number(getValue("csi-sharpness")),
+    auto_white_balance: getChecked("csi-auto-white-balance"),
+    colour_gain_red: getOptionalNumber("csi-colour-gain-red"),
+    colour_gain_blue: getOptionalNumber("csi-colour-gain-blue"),
+  };
+}
+
 function buildProcessingPayload() {
   return {
     detection_enabled: getChecked("detection-enabled"),
@@ -533,6 +621,8 @@ function validateBeforeSave() {
   const minSpeed = Number(getValue("min-speed-kmh"));
   const maxSpeed = Number(getValue("max-speed-kmh"));
   const downscale = Number(getValue("downscale-factor"));
+  const csiExposureTime = getOptionalNumber("csi-exposure-time-us");
+  const csiAnalogueGain = getOptionalNumber("csi-analogue-gain");
 
   if (!["usb", "csi", "rtsp"].includes(sourceType)) {
     throw new Error("入力ソースは USB / CSI / RTSP から選択してください。");
@@ -558,6 +648,12 @@ function validateBeforeSave() {
   if (maxSpeed <= 0 || maxSpeed < minSpeed) {
     throw new Error("速度範囲を見直してください。");
   }
+  if (csiExposureTime !== null && csiExposureTime <= 0) {
+    throw new Error("CSI の露出時間は正の値で入力してください。");
+  }
+  if (csiAnalogueGain !== null && csiAnalogueGain <= 0) {
+    throw new Error("CSI のアナログゲインは正の値で入力してください。");
+  }
 }
 
 async function saveConfig() {
@@ -572,6 +668,8 @@ async function saveConfig() {
       rtsp_url: getValue("rtsp-url").trim(),
       resolution: [Number(getValue("camera-width")), Number(getValue("camera-height"))],
       fps: Number(getValue("camera-fps")),
+      usb_settings: buildUsbSettingsPayload(),
+      csi_settings: buildCsiSettingsPayload(),
     },
     roi: {
       enabled: getChecked("roi-enabled"),
@@ -663,6 +761,9 @@ document.getElementById("clear-current-points").addEventListener("click", clearC
 document.getElementById("clear-all-overlays").addEventListener("click", clearAllOverlays);
 monitorLayoutButtonEl.addEventListener("click", () => setMonitorFocus(!state.monitorFocus));
 cameraTypeEl.addEventListener("change", applyCameraTypeUI);
+["usb-auto-exposure", "usb-autofocus", "csi-auto-exposure", "csi-auto-white-balance"].forEach((id) => {
+  document.getElementById(id).addEventListener("change", applyCameraTypeUI);
+});
 
 document.getElementById("mode-roi").dataset.mode = "roi";
 document.getElementById("mode-perspective").dataset.mode = "perspective";

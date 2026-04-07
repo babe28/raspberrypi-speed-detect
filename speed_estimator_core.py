@@ -480,9 +480,9 @@ class SpeedEstimator:
             annotated[:preview_h, :preview_w] = mask_preview
         if self.debug_mode:
             debug_text = (
-                f"debug min={self.min_contour_area} max={self.max_contour_area} "
+                f"[DBG] min={self.min_contour_area} max={self.max_contour_area} "
                 f"minspd={self.min_speed_kmh:.1f} "
-                f"thr={self.effective_threshold_value} blue={'on' if self.exclude_blue_floor else 'off'} "
+                f"thr={self.effective_threshold_value} BLUE={'on' if self.exclude_blue_floor else 'off'} "
                 f"ppm={'set' if self.scale_ppm > 0 else 'unset'}"
             )
             cv2.putText(
@@ -490,7 +490,7 @@ class SpeedEstimator:
                 debug_text,
                 (12, annotated.shape[0] - 16),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
+                0.45,
                 (255, 255, 255),
                 2,
                 cv2.LINE_AA,

@@ -12,6 +12,29 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "rtsp_url": "",
         "resolution": [1280, 720],
         "fps": 30,
+        "usb_settings": {
+            "auto_exposure": True,
+            "exposure": None,
+            "brightness": None,
+            "contrast": None,
+            "saturation": None,
+            "sharpness": None,
+            "gain": None,
+            "autofocus": False,
+            "focus": None,
+        },
+        "csi_settings": {
+            "auto_exposure": True,
+            "exposure_time_us": None,
+            "analogue_gain": None,
+            "brightness": 0.0,
+            "contrast": 1.0,
+            "saturation": 1.0,
+            "sharpness": 1.0,
+            "auto_white_balance": True,
+            "colour_gain_red": None,
+            "colour_gain_blue": None,
+        },
     },
     "calibration": {
         "camera_matrix": None,
@@ -141,6 +164,31 @@ class ConfigManager:
         if camera["rtsp_enabled"]:
             camera["type"] = "rtsp"
         camera["rtsp_url"] = str(camera.get("rtsp_url", ""))
+        usb_settings = camera.get("usb_settings", {})
+        camera["usb_settings"] = {
+            "auto_exposure": bool(usb_settings.get("auto_exposure", True)),
+            "exposure": self._normalize_optional_float(usb_settings.get("exposure")),
+            "brightness": self._normalize_optional_float(usb_settings.get("brightness")),
+            "contrast": self._normalize_optional_float(usb_settings.get("contrast")),
+            "saturation": self._normalize_optional_float(usb_settings.get("saturation")),
+            "sharpness": self._normalize_optional_float(usb_settings.get("sharpness")),
+            "gain": self._normalize_optional_float(usb_settings.get("gain")),
+            "autofocus": bool(usb_settings.get("autofocus", False)),
+            "focus": self._normalize_optional_float(usb_settings.get("focus")),
+        }
+        csi_settings = camera.get("csi_settings", {})
+        camera["csi_settings"] = {
+            "auto_exposure": bool(csi_settings.get("auto_exposure", True)),
+            "exposure_time_us": self._normalize_optional_int(csi_settings.get("exposure_time_us")),
+            "analogue_gain": self._normalize_optional_float(csi_settings.get("analogue_gain")),
+            "brightness": float(csi_settings.get("brightness", 0.0)),
+            "contrast": float(csi_settings.get("contrast", 1.0)),
+            "saturation": float(csi_settings.get("saturation", 1.0)),
+            "sharpness": float(csi_settings.get("sharpness", 1.0)),
+            "auto_white_balance": bool(csi_settings.get("auto_white_balance", True)),
+            "colour_gain_red": self._normalize_optional_float(csi_settings.get("colour_gain_red")),
+            "colour_gain_blue": self._normalize_optional_float(csi_settings.get("colour_gain_blue")),
+        }
 
         roi = config["roi"]
         roi["enabled"] = bool(roi.get("enabled", False))
@@ -253,6 +301,14 @@ class ConfigManager:
             raise ValueError("USB camera device index must be 0 or greater.")
         if camera["type"] == "rtsp" and not camera["rtsp_url"].strip():
             raise ValueError("RTSP URL is required when camera.type is rtsp.")
+        if camera["csi_settings"]["exposure_time_us"] is not None and camera["csi_settings"]["exposure_time_us"] <= 0:
+            raise ValueError("CSI exposure_time_us must be positive.")
+        if camera["csi_settings"]["analogue_gain"] is not None and camera["csi_settings"]["analogue_gain"] <= 0:
+            raise ValueError("CSI analogue_gain must be positive.")
+        if camera["csi_settings"]["colour_gain_red"] is not None and camera["csi_settings"]["colour_gain_red"] <= 0:
+            raise ValueError("CSI colour_gain_red must be positive.")
+        if camera["csi_settings"]["colour_gain_blue"] is not None and camera["csi_settings"]["colour_gain_blue"] <= 0:
+            raise ValueError("CSI colour_gain_blue must be positive.")
 
         if not 0.1 <= processing["downscale_factor"] <= 1.0:
             raise ValueError("downscale_factor must be between 0.1 and 1.0.")
@@ -316,3 +372,19 @@ class ConfigManager:
         if not isinstance(value, list) or len(value) != 3:
             return default
         return [int(max(0, min(component, 255))) for component in value]
+
+    def _normalize_optional_float(self, value: Any) -> float | None:
+        if value in (None, ""):
+            return None
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _normalize_optional_int(self, value: Any) -> int | None:
+        if value in (None, ""):
+            return None
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
