@@ -17,7 +17,9 @@ class CameraManager:
         self.config = config
         self.camera_type = config["camera"]["type"]
         self.device = config["camera"]["device"]
-        self.rtsp_enabled = bool(config["camera"].get("rtsp_enabled", False))
+        self.rtsp_enabled = self.camera_type == "rtsp" or bool(
+            config["camera"].get("rtsp_enabled", False)
+        )
         self.rtsp_url = str(config["camera"].get("rtsp_url", ""))
         self.width, self.height = config["camera"]["resolution"]
         self.fps = config["camera"]["fps"]
@@ -26,13 +28,18 @@ class CameraManager:
         self.picam2: Any = None
 
     def start(self) -> None:
-        if self.rtsp_enabled:
+        if self.camera_type == "rtsp" or self.rtsp_enabled:
             self._start_rtsp_stream()
             return
 
         if self.camera_type == "csi":
             self._start_csi_camera()
             return
+
+        if self.camera_type != "usb":
+            raise RuntimeError(
+                f"Unsupported camera type: {self.camera_type}. Expected usb, csi, or rtsp."
+            )
 
         self.cap = cv2.VideoCapture(self.device)
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
@@ -43,8 +50,8 @@ class CameraManager:
             raise RuntimeError(f"USB camera could not be opened: device={self.device}")
 
     def _start_rtsp_stream(self) -> None:
-        if not self.rtsp_url:
-            raise RuntimeError("RTSP is enabled but rtsp_url is empty")
+        if not self.rtsp_url.strip():
+            raise RuntimeError("RTSP was selected but rtsp_url is empty.")
 
         candidates = [self.rtsp_url]
         if "rtsp_transport=" not in self.rtsp_url:
@@ -78,7 +85,7 @@ class CameraManager:
                 cap.release()
 
         raise RuntimeError(
-            f"{last_error}. URL={self.rtsp_url}. Try tcp transport and verify the stream with ffplay/vlc."
+            f"{last_error}. URL={self.rtsp_url}. Try TCP transport and verify the stream with ffplay or VLC."
         )
 
     def read(self) -> tuple[bool, np.ndarray | None]:

@@ -94,11 +94,13 @@ class ConfigManager:
 
         config = self._deep_merge(copy.deepcopy(DEFAULT_CONFIG), raw)
         self._normalize(config)
+        self._validate(config)
         return config
 
     def save(self, config: dict[str, Any]) -> None:
         normalized = copy.deepcopy(config)
         self._normalize(normalized)
+        self._validate(normalized)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.path.open("w", encoding="utf-8") as fh:
             json.dump(normalized, fh, indent=2, ensure_ascii=False)
@@ -107,6 +109,7 @@ class ConfigManager:
         config = self.load()
         updated = self._deep_merge(config, patch)
         self._normalize(updated)
+        self._validate(updated)
         self.save(updated)
         return updated
 
@@ -124,10 +127,19 @@ class ConfigManager:
         if not isinstance(resolution, list) or len(resolution) != 2:
             resolution = [1280, 720]
         camera["resolution"] = [int(resolution[0]), int(resolution[1])]
-        camera["device"] = int(camera.get("device", 0))
+        try:
+            camera["device"] = int(camera.get("device", 0))
+        except (TypeError, ValueError):
+            camera["device"] = 0
         camera["fps"] = int(camera.get("fps", 30))
         camera["type"] = str(camera.get("type", "usb")).lower()
-        camera["rtsp_enabled"] = bool(camera.get("rtsp_enabled", False))
+        if camera["type"] not in {"usb", "csi", "rtsp"}:
+            camera["type"] = "usb"
+        camera["rtsp_enabled"] = camera["type"] == "rtsp" or bool(
+            camera.get("rtsp_enabled", False)
+        )
+        if camera["rtsp_enabled"]:
+            camera["type"] = "rtsp"
         camera["rtsp_url"] = str(camera.get("rtsp_url", ""))
 
         roi = config["roi"]
@@ -225,6 +237,48 @@ class ConfigManager:
         logging_cfg = config["logging"]
         logging_cfg["enable_csv"] = bool(logging_cfg.get("enable_csv", True))
         logging_cfg["csv_path"] = str(logging_cfg.get("csv_path", "logs/speed_log.csv"))
+
+    def _validate(self, config: dict[str, Any]) -> None:
+        camera = config["camera"]
+        processing = config["processing"]
+        measurement = config["measurement"]
+
+        if camera["type"] not in {"usb", "csi", "rtsp"}:
+            raise ValueError("camera.type must be usb, csi, or rtsp.")
+        if camera["resolution"][0] <= 0 or camera["resolution"][1] <= 0:
+            raise ValueError("Camera resolution values must be positive.")
+        if camera["fps"] <= 0:
+            raise ValueError("FPS must be at least 1.")
+        if camera["type"] == "usb" and camera["device"] < 0:
+            raise ValueError("USB camera device index must be 0 or greater.")
+        if camera["type"] == "rtsp" and not camera["rtsp_url"].strip():
+            raise ValueError("RTSP URL is required when camera.type is rtsp.")
+
+        if not 0.1 <= processing["downscale_factor"] <= 1.0:
+            raise ValueError("downscale_factor must be between 0.1 and 1.0.")
+        if processing["min_contour_area"] <= 0:
+            raise ValueError("min_contour_area must be at least 1.")
+        if processing["max_contour_area"] < processing["min_contour_area"]:
+            raise ValueError("max_contour_area must be greater than or equal to min_contour_area.")
+        if processing["max_speed_kmh"] <= 0:
+            raise ValueError("max_speed_kmh must be positive.")
+        if processing["max_speed_kmh"] < processing["min_speed_kmh"]:
+            raise ValueError("max_speed_kmh must be greater than or equal to min_speed_kmh.")
+        if processing["background_history"] <= 0:
+            raise ValueError("background_history must be at least 1.")
+        if processing["background_var_threshold"] <= 0:
+            raise ValueError("background_var_threshold must be at least 1.")
+        if processing["track_max_distance"] <= 0:
+            raise ValueError("track_max_distance must be positive.")
+        if processing["track_max_missing_frames"] <= 0:
+            raise ValueError("track_max_missing_frames must be at least 1.")
+
+        if measurement["mode"] not in {"tracking", "line_crossing"}:
+            raise ValueError("measurement.mode must be tracking or line_crossing.")
+        if measurement["overlay_hold_seconds"] <= 0:
+            raise ValueError("overlay_hold_seconds must be positive.")
+        if measurement["line_crossing"]["distance_m"] <= 0:
+            raise ValueError("line_crossing.distance_m must be positive.")
 
     def _normalize_point(self, point: Any) -> list[float]:
         if isinstance(point, (list, tuple)) and len(point) == 2:

@@ -301,6 +301,13 @@ def restart_processor() -> None:
     ensure_processor_started()
 
 
+def _json_error(message: str, status: int = 400, details: str | None = None) -> Response:
+    payload: dict[str, Any] = {"error": message}
+    if details:
+        payload["details"] = details
+    return jsonify(payload), status
+
+
 @app.get("/")
 def index() -> str:
     ensure_processor_started()
@@ -330,33 +337,41 @@ def clear_recent_events() -> Response:
 
 @app.post("/api/config")
 def save_config() -> Response:
-    payload = request.get_json(force=True) or {}
-    before = config_manager.load()
-    updated = config_manager.update(payload)
-    before_downscale = float(before["processing"]["downscale_factor"])
-    after_downscale = float(updated["processing"]["downscale_factor"])
-    if before_downscale > 0 and abs(before_downscale - after_downscale) > 1e-6:
-        ratio = after_downscale / before_downscale
-        updated = _rescale_config_for_downscale(updated, ratio)
-        config_manager.save(updated)
-    restart_processor()
-    return jsonify(updated)
+    try:
+        payload = request.get_json(force=True) or {}
+        before = config_manager.load()
+        updated = config_manager.update(payload)
+        before_downscale = float(before["processing"]["downscale_factor"])
+        after_downscale = float(updated["processing"]["downscale_factor"])
+        if before_downscale > 0 and abs(before_downscale - after_downscale) > 1e-6:
+            ratio = after_downscale / before_downscale
+            updated = _rescale_config_for_downscale(updated, ratio)
+            config_manager.save(updated)
+        restart_processor()
+        return jsonify(updated)
+    except ValueError as exc:
+        return _json_error(str(exc), 400)
+    except Exception as exc:  # pragma: no cover - defensive API guard
+        return _json_error("設定保存中にエラーが発生しました。", 500, str(exc))
 
 
 @app.post("/api/calibrate/scale")
 def calibrate_scale() -> Response:
     payload = request.get_json(force=True) or {}
     points = payload.get("points", [])
-    known_distance_m = float(payload.get("known_distance_m", 0))
+    try:
+        known_distance_m = float(payload.get("known_distance_m", 0))
+    except (TypeError, ValueError):
+        return _json_error("既知距離は数値で入力してください。", 400)
 
     if len(points) != 2 or known_distance_m <= 0:
-        return jsonify({"error": "Two points and a positive distance are required."}), 400
+        return _json_error("2点と正の既知距離が必要です。", 400)
 
     x1, y1 = points[0]
     x2, y2 = points[1]
     pixel_distance = float(((x2 - x1) ** 2 + (y2 - y1) ** 2) ** 0.5)
     if pixel_distance <= 0:
-        return jsonify({"error": "Pixel distance must be positive."}), 400
+        return _json_error("ピクセル距離は正の値である必要があります。", 400)
 
     ppm = pixel_distance / known_distance_m
     updated = config_manager.update(
@@ -378,7 +393,7 @@ def save_perspective() -> Response:
     payload = request.get_json(force=True) or {}
     points = payload.get("src_points", [])
     if len(points) != 4:
-        return jsonify({"error": "Exactly four points are required."}), 400
+        return _json_error("Perspective にはちょうど4点が必要です。", 400)
 
     config = config_manager.load()
     output_size = _perspective_output_size(config)

@@ -270,6 +270,7 @@ class SpeedEstimator:
                         now,
                     )
                     if measurement_event is not None:
+                        measurement_event["area"] = detection["area"]
                         events.append(measurement_event)
                         if not measurement_event.get("subdued", False):
                             self._log_event(measurement_event, now)
@@ -282,6 +283,7 @@ class SpeedEstimator:
                     "id": track.track_id,
                     "bbox": detection["bbox"],
                     "centroid": track.centroid,
+                    "area": detection["area"],
                     "speed_kmh": track.speed_kmh,
                     "speed_px_s": track.speed_px_s,
                     "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
@@ -458,6 +460,11 @@ class SpeedEstimator:
                     f"ID {event['id']}",
                     event["speed_label"],
                     color,
+                    detail_text=(
+                        f"area {int(round(float(event.get('area', 0.0))))}"
+                        if self.debug_mode and event.get("area") is not None
+                        else None
+                    ),
                     subdued=subdued,
                 )
 
@@ -678,6 +685,7 @@ class SpeedEstimator:
         id_text: str,
         speed_text: str,
         color: tuple[int, int, int],
+        detail_text: str | None = None,
         subdued: bool = False,
     ) -> None:
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -693,11 +701,27 @@ class SpeedEstimator:
         speed_box_w = speed_w + padding_x * 2
         top = max(2, y - box_h)
         speed_x = x + id_box_w + gap
+        detail_box_w = 0
+        detail_x = speed_x + speed_box_w + gap
+
+        if detail_text:
+            (detail_w, detail_h), _ = cv2.getTextSize(detail_text, font, font_scale, thickness)
+            box_h = max(box_h, detail_h + padding_y * 2)
+            detail_box_w = detail_w + padding_x * 2
 
         id_bg = self._muted_color(color) if subdued else color
         speed_bg = (48, 48, 48) if subdued else (18, 18, 18)
         cv2.rectangle(frame, (x, top), (x + id_box_w, top + box_h), id_bg, -1)
         cv2.rectangle(frame, (speed_x, top), (speed_x + speed_box_w, top + box_h), speed_bg, -1)
+        if detail_text:
+            detail_bg = (70, 92, 102) if subdued else (28, 76, 94)
+            cv2.rectangle(
+                frame,
+                (detail_x, top),
+                (detail_x + detail_box_w, top + box_h),
+                detail_bg,
+                -1,
+            )
         cv2.putText(
             frame,
             id_text,
@@ -718,6 +742,17 @@ class SpeedEstimator:
             thickness + 1,
             cv2.LINE_AA,
         )
+        if detail_text:
+            cv2.putText(
+                frame,
+                detail_text,
+                (detail_x + padding_x, top + box_h - padding_y),
+                font,
+                font_scale,
+                (255, 255, 255),
+                thickness,
+                cv2.LINE_AA,
+            )
 
     def _as_points(self, values: Any) -> tuple[tuple[float, float], tuple[float, float]] | None:
         if not isinstance(values, list) or len(values) != 2:

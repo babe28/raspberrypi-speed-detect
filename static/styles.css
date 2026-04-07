@@ -25,7 +25,7 @@ body {
 }
 
 .layout {
-  max-width: 1500px;
+  max-width: 1600px;
   margin: 0 auto;
   padding: 22px;
 }
@@ -90,9 +90,14 @@ h1, h2 {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(380px, 0.75fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(420px, 0.85fr);
   gap: 18px;
   align-items: start;
+  transition: grid-template-columns 180ms ease;
+}
+
+.workspace.monitor-focus {
+  grid-template-columns: minmax(0, 0.9fr) minmax(520px, 1.25fr);
 }
 
 .main-stack {
@@ -103,6 +108,11 @@ h1, h2 {
 .canvas-panel {
   padding: 18px;
   background: linear-gradient(180deg, var(--panel-strong), rgba(236, 247, 242, 0.94));
+  transition: padding 180ms ease;
+}
+
+.workspace.monitor-focus .canvas-panel {
+  padding: 14px;
 }
 
 .panel-header {
@@ -131,6 +141,11 @@ h1, h2 {
   height: auto;
   max-height: 74vh;
   cursor: crosshair;
+  transition: max-height 180ms ease;
+}
+
+.workspace.monitor-focus #snapshot-canvas {
+  max-height: 34vh;
 }
 
 .canvas-overlay {
@@ -163,7 +178,7 @@ h1, h2 {
 }
 
 .canvas-help {
-  max-width: 380px;
+  max-width: 420px;
   padding: 10px 12px;
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.84);
@@ -173,6 +188,11 @@ h1, h2 {
   display: grid;
   gap: 14px;
   margin-top: 14px;
+}
+
+.workspace.monitor-focus .editor-toolbar {
+  gap: 10px;
+  margin-top: 10px;
 }
 
 .point-summary {
@@ -236,12 +256,23 @@ label {
   display: grid;
   gap: 6px;
   font-weight: 600;
+  min-width: 0;
 }
 
 .inline.compact {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+}
+
+.checkbox-label {
+  width: fit-content;
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.checkbox-label span {
+  white-space: nowrap;
 }
 
 input,
@@ -274,7 +305,7 @@ button {
   color: white;
   font-weight: 700;
   cursor: pointer;
-  transition: transform 140ms ease, box-shadow 140ms ease;
+  transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
 }
 
 button:hover {
@@ -288,8 +319,10 @@ button.ghost {
   border: 1px solid rgba(8, 76, 97, 0.16);
 }
 
-.mode-button.active {
+.mode-button.active,
+#toggle-monitor-focus.active {
   background: linear-gradient(135deg, #0c927d, #065f73);
+  color: #ffffff;
 }
 
 .stream {
@@ -300,6 +333,16 @@ button.ghost {
   background: rgba(8, 76, 97, 0.08);
   min-height: 200px;
   object-fit: cover;
+}
+
+.live-stream {
+  min-height: 260px;
+  max-height: 56vh;
+}
+
+.workspace.monitor-focus .live-stream {
+  min-height: 420px;
+  max-height: 64vh;
 }
 
 .preview {
@@ -317,11 +360,16 @@ button.ghost {
 }
 
 .event-log-shell {
-  max-height: 240px;
+  max-height: 280px;
   overflow: auto;
   border-radius: 16px;
   border: 1px solid rgba(17, 33, 31, 0.08);
   background: rgba(255, 255, 255, 0.74);
+  transition: max-height 180ms ease;
+}
+
+.workspace.monitor-focus .event-log-shell {
+  max-height: 420px;
 }
 
 .event-log-table {
@@ -435,13 +483,23 @@ button.ghost {
   line-height: 1.55;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 @media (max-width: 1280px) {
-  .workspace {
+  .workspace,
+  .workspace.monitor-focus {
     grid-template-columns: 1fr;
   }
 
   .sidebar {
     position: static;
+  }
+
+  .workspace.monitor-focus #snapshot-canvas,
+  #snapshot-canvas {
+    max-height: 60vh;
   }
 }
 
@@ -461,5 +519,12 @@ button.ghost {
   .canvas-overlay,
   .panel-header {
     display: grid;
+  }
+  .checkbox-label,
+  .checkbox-label span {
+    white-space: normal;
+  }
+  .event-log-table {
+    min-width: 0;
   }
 }
