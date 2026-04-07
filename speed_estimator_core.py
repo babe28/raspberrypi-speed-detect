@@ -75,6 +75,8 @@ class SpeedEstimator:
         self.effective_track_max_distance = (
             self.track_max_distance * 1.35 if self.debug_mode else self.track_max_distance
         )
+        if self.measurement_mode == "line_crossing":
+            self.effective_track_max_distance *= 1.2
         self.effective_threshold_value = (
             max(80, int(self.threshold_value * 0.85)) if self.debug_mode else self.threshold_value
         )
@@ -219,6 +221,7 @@ class SpeedEstimator:
                     measurement_event = self._maybe_measure_line_crossing(
                         track,
                         previous_centroid,
+                        track.timestamp,
                         detection["centroid"],
                         now,
                     )
@@ -257,20 +260,22 @@ class SpeedEstimator:
         self,
         track: Track,
         previous_centroid: tuple[float, float],
+        previous_timestamp: float,
         current_centroid: tuple[float, float],
         now: float,
     ) -> dict[str, Any] | None:
         if self.line_a is None or self.line_b is None or self.line_distance_m <= 0:
             return None
 
-        crossed_a = self._segments_intersect(previous_centroid, current_centroid, *self.line_a)
-        crossed_b = self._segments_intersect(previous_centroid, current_centroid, *self.line_b)
+        crossed_a = self._segment_intersection_ratio(previous_centroid, current_centroid, *self.line_a)
+        crossed_b = self._segment_intersection_ratio(previous_centroid, current_centroid, *self.line_b)
+        segment_dt = max(0.0, now - previous_timestamp)
 
-        if crossed_a:
-            track.crossed_lines["line_a"] = now
+        if crossed_a is not None:
+            track.crossed_lines["line_a"] = previous_timestamp + (segment_dt * crossed_a)
 
-        if crossed_b:
-            track.crossed_lines["line_b"] = now
+        if crossed_b is not None:
+            track.crossed_lines["line_b"] = previous_timestamp + (segment_dt * crossed_b)
 
         line_a_time = track.crossed_lines.get("line_a")
         line_b_time = track.crossed_lines.get("line_b")
@@ -694,6 +699,27 @@ class SpeedEstimator:
             return (c[1] - a[1]) * (b[0] - a[0]) > (b[1] - a[1]) * (c[0] - a[0])
 
         return ccw(p1, q1, q2) != ccw(p2, q1, q2) and ccw(p1, p2, q1) != ccw(p1, p2, q2)
+
+    def _segment_intersection_ratio(
+        self,
+        p1: tuple[float, float],
+        p2: tuple[float, float],
+        q1: tuple[float, float],
+        q2: tuple[float, float],
+    ) -> float | None:
+        x1, y1 = p1
+        x2, y2 = p2
+        x3, y3 = q1
+        x4, y4 = q2
+        denom = ((x1 - x2) * (y3 - y4)) - ((y1 - y2) * (x3 - x4))
+        if abs(denom) < 1e-6:
+            return None
+
+        t = (((x1 - x3) * (y3 - y4)) - ((y1 - y3) * (x3 - x4))) / denom
+        u = (((x1 - x3) * (y1 - y2)) - ((y1 - y3) * (x1 - x2))) / denom
+        if 0.0 <= t <= 1.0 and 0.0 <= u <= 1.0:
+            return float(t)
+        return None
 
     def _as_matrix(self, values: Any) -> np.ndarray | None:
         if values is None:

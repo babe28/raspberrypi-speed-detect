@@ -48,6 +48,63 @@ def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
     return camera, config
 
 
+def _scale_points(points: list[Any], ratio: float) -> list[list[float]]:
+    scaled: list[list[float]] = []
+    for point in points:
+        if isinstance(point, (list, tuple)) and len(point) == 2:
+            scaled.append([float(point[0]) * ratio, float(point[1]) * ratio])
+    return scaled
+
+
+def _recompute_perspective_matrix(config: dict[str, Any]) -> None:
+    points = config["perspective"].get("src_points", [])
+    if len(points) != 4:
+        config["perspective"]["homography_matrix"] = None
+        return
+
+    base_width, base_height = config["camera"]["resolution"]
+    downscale_factor = float(config["processing"]["downscale_factor"])
+    output_width = max(1, int(round(base_width * downscale_factor)))
+    output_height = max(1, int(round(base_height * downscale_factor)))
+    src = np.array(points, dtype=np.float32)
+    dst = np.array(
+        [
+            [0, 0],
+            [output_width - 1, 0],
+            [output_width - 1, output_height - 1],
+            [0, output_height - 1],
+        ],
+        dtype=np.float32,
+    )
+    matrix = cv2.getPerspectiveTransform(src, dst)
+    config["perspective"]["homography_matrix"] = matrix.tolist()
+
+
+def _rescale_config_for_downscale(config: dict[str, Any], ratio: float) -> dict[str, Any]:
+    if abs(ratio - 1.0) < 1e-6:
+        return config
+
+    config["roi"]["polygon"] = _scale_points(config["roi"].get("polygon", []), ratio)
+    config["perspective"]["src_points"] = _scale_points(
+        config["perspective"].get("src_points", []), ratio
+    )
+    config["scale"]["points"] = _scale_points(config["scale"].get("points", []), ratio)
+    config["measurement"]["line_crossing"]["line_a"] = _scale_points(
+        config["measurement"]["line_crossing"].get("line_a", []), ratio
+    )
+    config["measurement"]["line_crossing"]["line_b"] = _scale_points(
+        config["measurement"]["line_crossing"].get("line_b", []), ratio
+    )
+
+    config["scale"]["pixel_distance"] = float(config["scale"].get("pixel_distance", 0.0)) * ratio
+    known_distance_m = float(config["scale"].get("known_distance_m", 0.0))
+    if known_distance_m > 0:
+        config["scale"]["ppm"] = float(config["scale"]["pixel_distance"]) / known_distance_m
+
+    _recompute_perspective_matrix(config)
+    return config
+
+
 def _remember_events(events: list[dict[str, Any]]) -> None:
     now = time.time()
     with recent_events_lock:
@@ -229,7 +286,14 @@ def clear_recent_events() -> Response:
 @app.post("/api/config")
 def save_config() -> Response:
     payload = request.get_json(force=True) or {}
+    before = config_manager.load()
     updated = config_manager.update(payload)
+    before_downscale = float(before["processing"]["downscale_factor"])
+    after_downscale = float(updated["processing"]["downscale_factor"])
+    if before_downscale > 0 and abs(before_downscale - after_downscale) > 1e-6:
+        ratio = after_downscale / before_downscale
+        updated = _rescale_config_for_downscale(updated, ratio)
+        config_manager.save(updated)
     restart_processor()
     return jsonify(updated)
 
