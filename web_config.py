@@ -56,16 +56,38 @@ def _scale_points(points: list[Any], ratio: float) -> list[list[float]]:
     return scaled
 
 
-def _recompute_perspective_matrix(config: dict[str, Any]) -> None:
+def _perspective_output_size(
+    config: dict[str, Any], snapshot_scale_ratio: float | None = None
+) -> tuple[int, int]:
+    frame = _latest_snapshot_frame()
+    if frame is not None:
+        width = frame.shape[1]
+        height = frame.shape[0]
+        if snapshot_scale_ratio is not None:
+            width = max(1, int(round(width * snapshot_scale_ratio)))
+            height = max(1, int(round(height * snapshot_scale_ratio)))
+        return width, height
+
+    base_width, base_height = config["camera"]["resolution"]
+    downscale_factor = float(config["processing"]["downscale_factor"])
+    return (
+        max(1, int(round(base_width * downscale_factor))),
+        max(1, int(round(base_height * downscale_factor))),
+    )
+
+
+def _recompute_perspective_matrix(
+    config: dict[str, Any], output_size: tuple[int, int] | None = None
+) -> None:
     points = config["perspective"].get("src_points", [])
     if len(points) != 4:
         config["perspective"]["homography_matrix"] = None
         return
 
-    base_width, base_height = config["camera"]["resolution"]
-    downscale_factor = float(config["processing"]["downscale_factor"])
-    output_width = max(1, int(round(base_width * downscale_factor)))
-    output_height = max(1, int(round(base_height * downscale_factor)))
+    if output_size is None:
+        output_width, output_height = _perspective_output_size(config)
+    else:
+        output_width, output_height = output_size
     src = np.array(points, dtype=np.float32)
     dst = np.array(
         [
@@ -101,7 +123,7 @@ def _rescale_config_for_downscale(config: dict[str, Any], ratio: float) -> dict[
     if known_distance_m > 0:
         config["scale"]["ppm"] = float(config["scale"]["pixel_distance"]) / known_distance_m
 
-    _recompute_perspective_matrix(config)
+    _recompute_perspective_matrix(config, _perspective_output_size(config, ratio))
     return config
 
 
@@ -335,28 +357,16 @@ def save_perspective() -> Response:
     if len(points) != 4:
         return jsonify({"error": "Exactly four points are required."}), 400
 
-    src = np.array(points, dtype=np.float32)
     config = config_manager.load()
-    base_width, base_height = config["camera"]["resolution"]
-    downscale_factor = float(config["processing"]["downscale_factor"])
-    output_width = max(1, int(round(base_width * downscale_factor)))
-    output_height = max(1, int(round(base_height * downscale_factor)))
-    dst = np.array(
-        [
-            [0, 0],
-            [output_width - 1, 0],
-            [output_width - 1, output_height - 1],
-            [0, output_height - 1],
-        ],
-        dtype=np.float32,
-    )
-    matrix = cv2.getPerspectiveTransform(src, dst)
+    output_size = _perspective_output_size(config)
+    config["perspective"]["src_points"] = points
+    _recompute_perspective_matrix(config, output_size)
 
     updated = config_manager.update(
         {
             "perspective": {
                 "src_points": points,
-                "homography_matrix": matrix.tolist(),
+                "homography_matrix": config["perspective"]["homography_matrix"],
             }
         }
     )
