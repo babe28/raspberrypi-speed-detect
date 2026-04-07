@@ -83,7 +83,7 @@ async function fetchJson(url, options = {}) {
   }
 
   if (!response.ok) {
-    const message = data?.error || data?.details || "騾壻ｿ｡縺ｫ螟ｱ謨励＠縺ｾ縺励◆縲・;
+    const message = data?.error || data?.details || "通信に失敗しました。";
     throw new Error(message);
   }
 
@@ -93,14 +93,14 @@ async function fetchJson(url, options = {}) {
 function setMode(mode) {
   state.mode = mode;
   const labels = {
-    pan: "遒ｺ隱阪・縺ｿ",
-    roi: "ROI 邱ｨ髮・ｸｭ",
-    perspective: "Perspective 邱ｨ髮・ｸｭ",
-    scale: "Scale 邱ｨ髮・ｸｭ",
-    lineA: "Line A 邱ｨ髮・ｸｭ",
-    lineB: "Line B 邱ｨ髮・ｸｭ",
+    pan: "確認のみ",
+    roi: "ROI 編集中",
+    perspective: "Perspective 編集中",
+    scale: "Scale 編集中",
+    lineA: "Line A 編集中",
+    lineB: "Line B 編集中",
   };
-  modeBadgeEl.textContent = labels[mode] || "繝｢繝ｼ繝峨ｒ驕ｸ謚槭＠縺ｦ縺上□縺輔＞";
+  modeBadgeEl.textContent = labels[mode] || "モードを選択してください";
   document.querySelectorAll(".mode-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.mode === mode);
   });
@@ -168,11 +168,11 @@ function applyBluePickerToInputs() {
 }
 
 function syncCounts() {
-  roiCountEl.textContent = `${state.roiPoints.length}轤ｹ`;
-  perspectiveCountEl.textContent = `${state.perspectivePoints.length} / 4轤ｹ`;
-  scaleCountEl.textContent = `${state.scalePoints.length} / 2轤ｹ`;
-  lineACountEl.textContent = `${state.lineAPoints.length} / 2轤ｹ`;
-  lineBCountEl.textContent = `${state.lineBPoints.length} / 2轤ｹ`;
+  roiCountEl.textContent = `${state.roiPoints.length}点`;
+  perspectiveCountEl.textContent = `${state.perspectivePoints.length} / 4点`;
+  scaleCountEl.textContent = `${state.scalePoints.length} / 2点`;
+  lineACountEl.textContent = `${state.lineAPoints.length} / 2点`;
+  lineBCountEl.textContent = `${state.lineBPoints.length} / 2点`;
 }
 
 function syncTextareas() {
@@ -235,7 +235,7 @@ function drawCanvas() {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "#33504b";
     ctx.font = "600 24px Segoe UI";
-    ctx.fillText("繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ繧貞叙蠕励＠縺ｦ縺上□縺輔＞", 32, 48);
+    ctx.fillText("スナップショットを取得してください", 32, 48);
   }
 
   drawPolygon(state.roiPoints, "#00bcd4", "rgba(0, 188, 212, 0.16)");
@@ -257,7 +257,7 @@ function drawCanvas() {
 function renderRecentEvents(events) {
   if (!events.length) {
     eventLogBodyEl.innerHTML = `
-      <tr><td colspan="4" class="empty-row">縺ｾ縺讀懃衍繝ｭ繧ｰ縺ｯ縺ゅｊ縺ｾ縺帙ｓ縲・/td></tr>
+      <tr><td colspan="4" class="empty-row">まだ検知ログはありません。</td></tr>
     `;
     return;
   }
@@ -288,7 +288,7 @@ function applyCameraTypeUI() {
 function setMonitorFocus(enabled) {
   state.monitorFocus = enabled;
   workspaceEl.classList.toggle("monitor-focus", enabled);
-  monitorLayoutButtonEl.textContent = enabled ? "邱ｨ髮・Ξ繧､繧｢繧ｦ繝・ : "逶｣隕悶Ξ繧､繧｢繧ｦ繝・;
+  monitorLayoutButtonEl.textContent = enabled ? "編集レイアウト" : "監視レイアウト";
   monitorLayoutButtonEl.classList.toggle("active", enabled);
 }
 
@@ -429,13 +429,13 @@ function syncFromTextarea(elementId, targetKey) {
     syncCounts();
     drawCanvas();
   } catch {
-    setStatus(`${elementId} 縺ｮ JSON 繧定ｧ｣驥医〒縺阪∪縺帙ｓ縺ｧ縺励◆縲Ａ, true);
+    setStatus(`${elementId} の JSON を解釈できませんでした。`, true);
   }
 }
 
 async function loadConfig() {
   fillForm(await fetchJson("/api/config"));
-  setStatus("險ｭ螳壹ｒ隱ｭ縺ｿ霎ｼ縺ｿ縺ｾ縺励◆縲・);
+  setStatus("設定を読み込みました。");
 }
 
 async function loadRecentEvents() {
@@ -449,7 +449,7 @@ async function loadRecentEvents() {
 async function clearRecentEvents() {
   await fetchJson("/api/recent-events/clear", { method: "POST" });
   renderRecentEvents([]);
-  setStatus("譛譁ｰ繝ｭ繧ｰ繧呈ｶ亥悉縺励∪縺励◆縲・);
+  setStatus("最新ログを消去しました。");
 }
 
 async function loadPerspectivePreview() {
@@ -535,28 +535,28 @@ function validateBeforeSave() {
   const downscale = Number(getValue("downscale-factor"));
 
   if (!["usb", "csi", "rtsp"].includes(sourceType)) {
-    throw new Error("蜈･蜉帙た繝ｼ繧ｹ縺ｯ USB / CSI / RTSP 縺九ｉ驕ｸ謚槭＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("入力ソースは USB / CSI / RTSP から選択してください。");
   }
   if (width <= 0 || height <= 0) {
-    throw new Error("繧ｫ繝｡繝ｩ縺ｮ蟷・→鬮倥＆縺ｯ 1 莉･荳翫〒蜈･蜉帙＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("カメラの幅と高さは 1 以上で入力してください。");
   }
   if (fps <= 0) {
-    throw new Error("FPS 縺ｯ 1 莉･荳翫〒蜈･蜉帙＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("FPS は 1 以上で入力してください。");
   }
   if (sourceType === "usb" && (!Number.isInteger(device) || device < 0)) {
-    throw new Error("USB 繧ｫ繝｡繝ｩ縺ｮ繝・ヰ繧､繧ｹ逡ｪ蜿ｷ縺ｯ 0 莉･荳翫・謨ｴ謨ｰ縺ｧ蜈･蜉帙＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("USB カメラのデバイス番号は 0 以上の整数で入力してください。");
   }
   if (sourceType === "rtsp" && !rtspUrl) {
-    throw new Error("RTSP 繧剃ｽｿ縺・ｴ蜷医・ RTSP URL 繧貞・蜉帙＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("RTSP を使う場合は RTSP URL を入力してください。");
   }
   if (downscale < 0.1 || downscale > 1.0) {
-    throw new Error("繝繧ｦ繝ｳ繧ｹ繧ｱ繝ｼ繝ｫ縺ｯ 0.1 縺九ｉ 1.0 縺ｮ遽・峇縺ｧ蜈･蜉帙＠縺ｦ縺上□縺輔＞縲・);
+    throw new Error("ダウンスケールは 0.1 から 1.0 の範囲で入力してください。");
   }
   if (minArea <= 0 || maxArea < minArea) {
-    throw new Error("霈ｪ驛ｭ繧ｵ繧､繧ｺ縺ｯ譛蟆・1 莉･荳翫∵怙螟ｧ縺ｯ譛蟆丈ｻ･荳翫↓縺励※縺上□縺輔＞縲・);
+    throw new Error("輪郭サイズは最小 1 以上、最大は最小以上にしてください。");
   }
   if (maxSpeed <= 0 || maxSpeed < minSpeed) {
-    throw new Error("騾溷ｺｦ遽・峇繧定ｦ狗峩縺励※縺上□縺輔＞縲・);
+    throw new Error("速度範囲を見直してください。");
   }
 }
 
@@ -586,7 +586,7 @@ async function saveConfig() {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   }));
-  setStatus("險ｭ螳壹ｒ菫晏ｭ倥＠縺ｾ縺励◆縲・);
+  setStatus("設定を保存しました。");
 }
 
 async function savePerspective() {
@@ -596,7 +596,7 @@ async function savePerspective() {
     body: JSON.stringify({ src_points: readJsonInput("perspective-points", []) }),
   });
   fillForm(data);
-  setStatus("Perspective 險ｭ螳壹ｒ菫晏ｭ倥＠縺ｾ縺励◆縲・);
+  setStatus("Perspective 設定を保存しました。");
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -610,7 +610,7 @@ async function saveScale() {
     }),
   });
   fillForm(data);
-  setStatus("繧ｹ繧ｱ繝ｼ繝ｫ繧呈峩譁ｰ縺励∪縺励◆縲・);
+  setStatus("スケールを更新しました。");
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -626,7 +626,7 @@ async function takeSnapshot() {
     };
     state.image.src = `data:image/jpeg;base64,${data.image_base64}`;
   });
-  setStatus("繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ繧貞叙蠕励＠縺ｾ縺励◆縲・);
+  setStatus("スナップショットを取得しました。");
   loadPerspectivePreview().catch(() => {});
 }
 
@@ -635,7 +635,7 @@ canvas.addEventListener("click", (event) => {
     return;
   }
   if (!state.imageLoaded) {
-    setStatus("蜈医↓繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ繧貞叙蠕励＠縺ｦ縺上□縺輔＞縲・, true);
+    setStatus("先にスナップショットを取得してください。", true);
     return;
   }
   addPoint(getCanvasPoint(event));
