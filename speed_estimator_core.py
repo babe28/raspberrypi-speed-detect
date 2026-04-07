@@ -105,6 +105,16 @@ class SpeedEstimator:
         self.display_roi_points = self._as_polygon(config["roi"]["polygon"])
         self.detect_roi_points = self.display_roi_points
         self.display_perspective_points = self._as_polygon(config["perspective"]["src_points"])
+        self.display_roi_polygon = (
+            np.array(self.display_roi_points, dtype=np.int32)
+            if self.config["roi"]["enabled"] and len(self.display_roi_points) >= 3
+            else None
+        )
+        self.display_perspective_polygon = (
+            np.array(self.display_perspective_points, dtype=np.int32)
+            if len(self.display_perspective_points) == 4
+            else None
+        )
         self._configure_detection_geometry()
         self.tracks: dict[int, Track] = {}
         self.active_measurements: list[OverlayMeasurement] = []
@@ -165,7 +175,7 @@ class SpeedEstimator:
             self.csv_handle = None
 
     def _apply_undistort(self, frame: np.ndarray) -> np.ndarray:
-        corrected = frame.copy()
+        corrected = frame
         if self.undistort_enabled and self.camera_matrix is not None and self.dist_coeffs is not None:
             corrected = cv2.undistort(corrected, self.camera_matrix, self.dist_coeffs)
         if self.undistort_enabled and abs(self.manual_distortion) > 1e-6:
@@ -201,14 +211,13 @@ class SpeedEstimator:
         )
 
     def _apply_perspective(self, frame: np.ndarray) -> np.ndarray:
-        corrected = frame.copy()
         if self.perspective_enabled and self.homography_matrix is not None:
-            corrected = cv2.warpPerspective(
-                corrected,
+            return cv2.warpPerspective(
+                frame,
                 self.homography_matrix,
-                (corrected.shape[1], corrected.shape[0]),
+                (frame.shape[1], frame.shape[0]),
             )
-        return corrected
+        return frame
 
     def _apply_image_correction(self, frame: np.ndarray) -> np.ndarray:
         if abs(self.contrast_gain - 1.0) < 1e-6 and self.brightness_offset == 0:
@@ -288,15 +297,10 @@ class SpeedEstimator:
             else:
                 previous_centroid = track.centroid
                 previous_timestamp = track.timestamp
-                speed_kmh, speed_px_s = self._estimate_speed(track, detection["centroid"], now)
-                track.centroid = detection["centroid"]
-                track.timestamp = now
-                track.missed_frames = 0
-                track.speed_kmh = speed_kmh
-                track.speed_px_s = speed_px_s
-                track.history.append((detection["centroid"][0], detection["centroid"][1], now))
-                track.history = track.history[-6:]
                 if self.measurement_mode == "line_crossing":
+                    track.centroid = detection["centroid"]
+                    track.timestamp = now
+                    track.missed_frames = 0
                     measurement_event = self._maybe_measure_line_crossing(
                         track,
                         previous_centroid,
@@ -309,6 +313,17 @@ class SpeedEstimator:
                         events.append(measurement_event)
                         if not measurement_event.get("subdued", False):
                             self._log_event(measurement_event, now)
+                else:
+                    speed_kmh, speed_px_s = self._estimate_speed(
+                        track, detection["centroid"], now
+                    )
+                    track.centroid = detection["centroid"]
+                    track.timestamp = now
+                    track.missed_frames = 0
+                    track.speed_kmh = speed_kmh
+                    track.speed_px_s = speed_px_s
+                    track.history.append((detection["centroid"][0], detection["centroid"][1], now))
+                    track.history = track.history[-6:]
 
             matched_track_ids.add(track.track_id)
             if self.measurement_mode == "tracking":
@@ -510,6 +525,11 @@ class SpeedEstimator:
     def _store_debug_frames(
         self, display_frame: np.ndarray, detection_frame: np.ndarray, mask: np.ndarray
     ) -> None:
+        if not self.debug_mode:
+            self.latest_display_frame = None
+            self.latest_detection_frame = None
+            self.latest_mask_frame = None
+            return
         self.latest_display_frame = display_frame.copy()
         self.latest_detection_frame = detection_frame.copy()
         self.latest_mask_frame = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
@@ -582,15 +602,41 @@ class SpeedEstimator:
     def _annotate(
         self, frame: np.ndarray, mask: np.ndarray, events: list[dict[str, Any]]
     ) -> np.ndarray:
+        has_roi_overlay = self.display_roi_polygon is not None
+        has_perspective_overlay = self.display_perspective_polygon is not None
+        has_event_boxes = bool(events) and (self.measurement_mode == "tracking" or self.debug_mode)
+        has_lines = self.measurement_mode == "line_crossing"
+        has_active_measurements = bool(self.active_measurements)
+        has_text_overlays = self.debug_mode or self.show_fps_overlay or self.show_mask_preview
+        if not (
+            has_roi_overlay
+            or has_perspective_overlay
+            or has_event_boxes
+            or has_lines
+            or has_active_measurements
+            or has_text_overlays
+        ):
+            return frame
+
         annotated = frame.copy()
 
-        if self.config["roi"]["enabled"] and len(self.display_roi_points) >= 3:
-            pts = np.array(self.display_roi_points, dtype=np.int32)
-            cv2.polylines(annotated, [pts], isClosed=True, color=(255, 255, 0), thickness=2)
+        if has_roi_overlay:
+            cv2.polylines(
+                annotated,
+                [self.display_roi_polygon],
+                isClosed=True,
+                color=(255, 255, 0),
+                thickness=2,
+            )
 
-        if len(self.display_perspective_points) == 4:
-            pts = np.array(self.display_perspective_points, dtype=np.int32)
-            cv2.polylines(annotated, [pts], isClosed=True, color=(0, 255, 255), thickness=2)
+        if has_perspective_overlay:
+            cv2.polylines(
+                annotated,
+                [self.display_perspective_polygon],
+                isClosed=True,
+                color=(0, 255, 255),
+                thickness=2,
+            )
 
         for event in events:
             if self.measurement_mode == "tracking" or self.debug_mode:
@@ -615,8 +661,10 @@ class SpeedEstimator:
                     subdued=subdued,
                 )
 
-        self._draw_measurement_lines(annotated)
-        self._draw_active_measurements(annotated)
+        if has_lines:
+            self._draw_measurement_lines(annotated)
+        if has_active_measurements:
+            self._draw_active_measurements(annotated)
 
         if self.show_mask_preview:
             mask_preview = cv2.cvtColor(mask, cv2.COLOR_GRAY2BGR)
