@@ -45,7 +45,12 @@ PRESETS_PATH = Path("config_presets.json")
 class SuppressRecentEventsFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         message = record.getMessage()
-        return "/api/recent-events" not in message
+        suppressed_paths = (
+            "/api/recent-events",
+            "/api/processor-stats",
+            "/api/diagnostics-frames",
+        )
+        return not any(path in message for path in suppressed_paths)
 
 
 logging.getLogger("werkzeug").addFilter(SuppressRecentEventsFilter())
@@ -163,6 +168,7 @@ def _remember_events(events: list[dict[str, Any]]) -> None:
                     "id": track_id,
                     "mode": str(event.get("mode", "tracking")),
                     "speed_kmh": round(speed_kmh, 1),
+                    "raw_speed_kmh": round(float(event.get("raw_speed_kmh", speed_kmh)), 1),
                     "speed_px_s": round(float(event.get("speed_px_s", 0.0)), 1),
                     "speed_label": event.get("speed_label", f"{speed_kmh:.1f} km/h"),
                     "area": round(float(event.get("area", 0.0)), 1),

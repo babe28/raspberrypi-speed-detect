@@ -66,6 +66,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "goal_time_seconds": 0.0,
             "course_distance_m": 0.0,
             "measurement_point_m": 0.0,
+            "bias_enabled": False,
             "global_bias_kmh": 0.0,
         },
         "line_crossing": {
@@ -251,8 +252,9 @@ class ConfigManager:
             "measurement_point_m": max(
                 0.0, float(race_reference.get("measurement_point_m", 0.0))
             ),
+            "bias_enabled": bool(race_reference.get("bias_enabled", False)),
             "global_bias_kmh": max(
-                -2.0, min(2.0, float(race_reference.get("global_bias_kmh", 0.0)))
+                -2.0, min(3.0, float(race_reference.get("global_bias_kmh", 0.0)))
             ),
         }
         line_crossing = measurement.get("line_crossing", {})
@@ -387,8 +389,13 @@ class ConfigManager:
             raise ValueError(
                 "measurement.race_reference.measurement_point_m must be less than or equal to course_distance_m."
             )
-        if abs(measurement["race_reference"]["global_bias_kmh"]) > 2.0:
-            raise ValueError("measurement.race_reference.global_bias_kmh must be between -2.0 and 2.0.")
+        if not isinstance(measurement["race_reference"]["bias_enabled"], bool):
+            raise ValueError("measurement.race_reference.bias_enabled must be true or false.")
+        if (
+            measurement["race_reference"]["global_bias_kmh"] < -2.0
+            or measurement["race_reference"]["global_bias_kmh"] > 3.0
+        ):
+            raise ValueError("measurement.race_reference.global_bias_kmh must be between -2.0 and 3.0.")
         if measurement["overlay_hold_seconds"] <= 0:
             raise ValueError("overlay_hold_seconds must be positive.")
         if measurement["line_crossing"]["distance_m"] <= 0:

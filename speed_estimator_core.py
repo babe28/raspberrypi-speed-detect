@@ -53,6 +53,7 @@ class SpeedEstimator:
         self.goal_time_seconds = float(self.race_reference.get("goal_time_seconds", 0.0))
         self.course_distance_m = float(self.race_reference.get("course_distance_m", 0.0))
         self.measurement_point_m = float(self.race_reference.get("measurement_point_m", 0.0))
+        self.bias_enabled = bool(self.race_reference.get("bias_enabled", False))
         self.global_bias_kmh = float(self.race_reference.get("global_bias_kmh", 0.0))
         self.line_crossing = measurement["line_crossing"]
         self.display_line_a = self._as_points(self.line_crossing["line_a"])
@@ -315,15 +316,17 @@ class SpeedEstimator:
                     continue
                 if not self._tracking_direction_matches(previous_centroid, track.centroid):
                     continue
+                display_speed_kmh = self._display_speed_kmh(track.speed_kmh)
                 event = {
                     "id": track.track_id,
                     "bbox": detection["bbox"],
                     "centroid": track.centroid,
                     "area": detection["area"],
                     "mode": "tracking",
-                    "speed_kmh": track.speed_kmh,
+                    "speed_kmh": display_speed_kmh,
+                    "raw_speed_kmh": track.speed_kmh,
                     "speed_px_s": track.speed_px_s,
-                    "speed_label": self._format_speed_label(track.speed_kmh, track.speed_px_s),
+                    "speed_label": self._format_speed_label(display_speed_kmh, track.speed_px_s),
                     "color": self._track_color(track.track_id),
                 }
                 event.update(self._goal_time_projection(track.speed_kmh))
@@ -386,14 +389,16 @@ class SpeedEstimator:
         if speed_kmh > self.max_speed_kmh:
             return None
 
+        display_speed_kmh = self._display_speed_kmh(speed_kmh)
         event = {
             "id": track.track_id,
             "bbox": self._bbox_from_centroid(current_centroid),
             "centroid": current_centroid,
             "mode": "line_crossing",
-            "speed_kmh": speed_kmh,
+            "speed_kmh": display_speed_kmh,
+            "raw_speed_kmh": speed_kmh,
             "speed_px_s": 0.0,
-            "speed_label": f"{speed_kmh:.1f} km/h",
+            "speed_label": f"{display_speed_kmh:.1f} km/h",
             "color": self._track_color(track.track_id),
         }
         event.update(self._goal_time_projection(speed_kmh))
@@ -527,6 +532,11 @@ class SpeedEstimator:
             "debug_mode": self.debug_mode,
         }
 
+    def _display_speed_kmh(self, speed_kmh: float) -> float:
+        if not self.bias_enabled:
+            return speed_kmh
+        return max(0.1, speed_kmh + self.global_bias_kmh)
+
     def _goal_time_projection(self, speed_kmh: float) -> dict[str, float | str]:
         if (
             self.goal_time_seconds <= 0
@@ -535,7 +545,7 @@ class SpeedEstimator:
         ):
             return {}
 
-        adjusted_speed_kmh = max(0.1, speed_kmh + self.global_bias_kmh)
+        adjusted_speed_kmh = self._display_speed_kmh(speed_kmh)
         adjusted_speed_mps = adjusted_speed_kmh / 3.6
         avg_speed_mps = self.course_distance_m / self.goal_time_seconds
         point_m = min(max(self.measurement_point_m, 0.0), self.course_distance_m)
@@ -554,6 +564,7 @@ class SpeedEstimator:
             "estimated_goal_time_label": label,
             "goal_time_delta_seconds": delta_seconds,
             "adjusted_speed_kmh": adjusted_speed_kmh,
+            "bias_enabled": self.bias_enabled,
         }
 
     def _find_nearest_track(self, centroid: tuple[float, float]) -> Track | None:

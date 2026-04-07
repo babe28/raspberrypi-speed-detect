@@ -483,8 +483,15 @@
         <label>測定地点 m
           <input id="measurement-point-m" type="number" min="0" step="0.1">
         </label>
+        <label class="switch-label" for="global-bias-enabled">
+          <span>グローバル偏差反映</span>
+          <span class="switch">
+            <input id="global-bias-enabled" type="checkbox">
+            <span class="switch-slider"></span>
+          </span>
+        </label>
         <label>グローバル偏差 km/h
-          <input id="global-bias-kmh" type="range" min="-2.0" max="2.0" step="0.1" value="0">
+          <input id="global-bias-kmh" type="range" min="-2.0" max="3.0" step="0.1" value="0">
         </label>
       </div>
       <div class="stats-grid race-stats-grid">
