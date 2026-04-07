@@ -11,11 +11,11 @@
     <header class="topbar panel">
       <div>
         <p class="eyebrow">Soapbox Speed Camera</p>
-        <h1>險ｭ螳壹さ繝ｳ繧ｽ繝ｼ繝ｫ</h1>
-        <p class="lead">繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ邱ｨ髮・√Λ繧､繝也｢ｺ隱阪∵､懃衍繝√Η繝ｼ繝九Φ繧ｰ繧貞酔縺倡判髱｢縺ｧ騾ｲ繧√ｉ繧後ｋ險ｭ螳啅I縺ｧ縺吶・/p>
+        <h1>設定コンソール</h1>
+        <p class="lead">スナップショット編集、ライブ確認、検知チューニングを同じ画面で進められる設定UIです。</p>
       </div>
       <div class="topbar-actions">
-        <button id="reload-config" type="button" class="ghost">險ｭ螳壼・隱ｭ霎ｼ</button>
+        <button id="reload-config" type="button" class="ghost">設定再読込</button>
       </div>
       <p id="status" class="status"></p>
     </header>
@@ -26,22 +26,22 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Editor</p>
-              <h2>繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ邱ｨ髮・/h2>
+              <h2>スナップショット編集</h2>
             </div>
             <div class="mini-actions">
-              <button id="take-snapshot" type="button">繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ蜿門ｾ・/button>
-              <button id="toggle-monitor-focus" type="button" class="ghost">逶｣隕悶Ξ繧､繧｢繧ｦ繝・/button>
-              <button id="save-config" type="button">險ｭ螳壹ｒ菫晏ｭ・/button>
-              <button id="clear-current-points" type="button" class="ghost">迴ｾ蝨ｨ繝｢繝ｼ繝峨ｒ豸亥悉</button>
-              <button id="clear-all-overlays" type="button" class="ghost">蜈ｨ繧ｪ繝ｼ繝舌・繝ｬ繧､豸亥悉</button>
+              <button id="take-snapshot" type="button">スナップショット取得</button>
+              <button id="toggle-monitor-focus" type="button" class="ghost">監視レイアウト</button>
+              <button id="save-config" type="button">設定を保存</button>
+              <button id="clear-current-points" type="button" class="ghost">現在モードを消去</button>
+              <button id="clear-all-overlays" type="button" class="ghost">全オーバーレイ消去</button>
             </div>
           </div>
 
           <div class="canvas-shell">
             <canvas id="snapshot-canvas" width="1280" height="720"></canvas>
             <div class="canvas-overlay">
-              <p id="mode-badge" class="mode-badge">繝｢繝ｼ繝峨ｒ驕ｸ謚槭＠縺ｦ縺上□縺輔＞</p>
-              <p class="canvas-help">轤ｹ繧呈遠縺｣縺ｦ ROI縲￣erspective縲ヾcale縲´ine A/B 繧堤ｷｨ髮・＠縺ｾ縺吶ら屮隕悶Ξ繧､繧｢繧ｦ繝医↓蛻・ｊ譖ｿ縺医ｋ縺ｨ縺薙・繝代ロ繝ｫ繧貞ｰ上＆縺上＠縺ｦ繝ｩ繧､繝悶→繝ｭ繧ｰ繧貞ｺ・￥陦ｨ遉ｺ縺励∪縺吶・/p>
+              <p id="mode-badge" class="mode-badge">モードを選択してください</p>
+              <p class="canvas-help">点を打って ROI、Perspective、Scale、Line A/B を編集します。監視レイアウトに切り替えるとこのパネルを小さくしてライブとログを広く表示します。</p>
             </div>
           </div>
 
@@ -52,28 +52,28 @@
               <button id="mode-scale" type="button" class="mode-button">Scale</button>
               <button id="mode-line-a" type="button" class="mode-button">Line A</button>
               <button id="mode-line-b" type="button" class="mode-button">Line B</button>
-              <button id="mode-pan" type="button" class="mode-button ghost">遒ｺ隱阪・縺ｿ</button>
+              <button id="mode-pan" type="button" class="mode-button ghost">確認のみ</button>
             </div>
             <div class="point-summary">
               <div>
                 <p class="summary-label">ROI</p>
-                <p id="roi-count" class="summary-value">0轤ｹ</p>
+                <p id="roi-count" class="summary-value">0点</p>
               </div>
               <div>
                 <p class="summary-label">Perspective</p>
-                <p id="perspective-count" class="summary-value">0 / 4轤ｹ</p>
+                <p id="perspective-count" class="summary-value">0 / 4点</p>
               </div>
               <div>
                 <p class="summary-label">Scale</p>
-                <p id="scale-count" class="summary-value">0 / 2轤ｹ</p>
+                <p id="scale-count" class="summary-value">0 / 2点</p>
               </div>
               <div>
                 <p class="summary-label">Line A</p>
-                <p id="line-a-count" class="summary-value">0 / 2轤ｹ</p>
+                <p id="line-a-count" class="summary-value">0 / 2点</p>
               </div>
               <div>
                 <p class="summary-label">Line B</p>
-                <p id="line-b-count" class="summary-value">0 / 2轤ｹ</p>
+                <p id="line-b-count" class="summary-value">0 / 2点</p>
               </div>
             </div>
           </div>
@@ -83,7 +83,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Calibration</p>
-              <h2>繧ｭ繝｣繝ｪ繝悶Ξ繝ｼ繧ｷ繝ｧ繝ｳ</h2>
+              <h2>キャリブレーション</h2>
             </div>
             <span class="pill">snapshot linked</span>
           </div>
@@ -92,56 +92,60 @@
               <summary>ROI</summary>
               <label class="inline compact checkbox-label">
                 <input id="roi-enabled" type="checkbox">
-                <span>ROI 繧呈怏蜉ｹ蛹・/span>
+                <span>ROI を有効化</span>
               </label>
               <textarea id="roi-polygon" rows="4"></textarea>
             </details>
 
             <details class="details-box" open>
               <summary>Perspective</summary>
-              <p class="hint">4轤ｹ縺ｯ 蟾ｦ荳翫∝承荳翫∝承荳九∝ｷｦ荳・縺ｮ鬆・〒險ｭ螳壹＠縺ｾ縺吶・/p>
+              <p class="hint">4点は 左上、右上、右下、左下 の順で設定します。</p>
               <textarea id="perspective-points" rows="3"></textarea>
-              <button id="save-perspective" type="button">Perspective 繧剃ｿ晏ｭ・/button>
+              <button id="save-perspective" type="button">Perspective を保存</button>
             </details>
 
             <details class="details-box" open>
               <summary>Scale</summary>
-              <p class="hint">ppm 譛ｪ險ｭ螳壽凾縺ｯ `px/s` 陦ｨ遉ｺ縺ｫ縺ｪ繧翫∪縺吶・/p>
+              <p class="hint">ppm 未設定時は `px/s` 表示になります。</p>
               <div class="form-grid two">
-                <label>譌｢遏･霍晞屬 m
+                <label>既知距離 m
                   <input id="known-distance" type="number" min="0.01" step="0.01">
                 </label>
-                <label>2轤ｹ JSON
+                <label>2点 JSON
                   <input id="scale-points" type="text" placeholder="[[100,100],[400,100]]">
                 </label>
               </div>
-              <button id="save-scale" type="button">繧ｹ繧ｱ繝ｼ繝ｫ繧定ｨ育ｮ・/button>
+              <button id="save-scale" type="button">スケールを計算</button>
               <p id="ppm-view" class="ppm"></p>
             </details>
 
             <details class="details-box" open>
               <summary>Speed Mode</summary>
               <div class="form-grid two">
-                <label>險域ｸｬ繝｢繝ｼ繝・                  <select id="measurement-mode">
+                <label>計測モード
+                  <select id="measurement-mode">
                     <option value="tracking">Tracking</option>
                     <option value="line_crossing">Line Crossing</option>
                   </select>
                 </label>
-                <label>陦ｨ遉ｺ菫晄戟譎る俣 遘・                  <input id="overlay-hold-seconds" type="number" min="1" max="30" step="1">
+                <label>表示保持時間 秒
+                  <input id="overlay-hold-seconds" type="number" min="1" max="30" step="1">
                 </label>
-                <label>驥崎､・､懃衍縺ｮ謇ｱ縺・                  <select id="repeat-behavior">
-                    <option value="normal">騾壼ｸｸ</option>
-                    <option value="ignore">辟｡隕・/option>
-                    <option value="subdued">謗ｧ縺医ａ陦ｨ遉ｺ</option>
+                <label>重複検知の扱い
+                  <select id="repeat-behavior">
+                    <option value="normal">通常</option>
+                    <option value="ignore">無視</option>
+                    <option value="subdued">控えめ表示</option>
                   </select>
                 </label>
-                <label>驥崎､・､懃衍繧ｯ繝ｼ繝ｫ繝繧ｦ繝ｳ 遘・                  <input id="repeat-cooldown-seconds" type="number" min="0" max="30" step="0.5">
+                <label>重複検知クールダウン 秒
+                  <input id="repeat-cooldown-seconds" type="number" min="0" max="30" step="0.5">
                 </label>
-                <label>Line 髢楢ｷ晞屬 m
+                <label>Line 間距離 m
                   <input id="line-distance-m" type="number" min="0.01" step="0.01">
                 </label>
               </div>
-              <p class="hint">Line Crossing 縺ｯ Line A 縺ｨ Line B 縺ｮ騾夐℃譎る俣蟾ｮ縺九ｉ騾溷ｺｦ繧堤ｮ怜・縺励∪縺吶・/p>
+              <p class="hint">Line Crossing は Line A と Line B の通過時間差から速度を算出します。</p>
               <div class="form-grid two">
                 <label>Line A JSON
                   <input id="line-a-points" type="text" placeholder="[[100,100],[300,100]]">
@@ -157,13 +161,14 @@
               <div class="form-grid two">
                 <label class="inline compact checkbox-label">
                   <input id="undistort-enabled" type="checkbox">
-                  <span>繝ｬ繝ｳ繧ｺ陬懈ｭ｣</span>
+                  <span>レンズ補正</span>
                 </label>
                 <label class="inline compact checkbox-label">
                   <input id="perspective-enabled" type="checkbox">
-                  <span>Perspective 陬懈ｭ｣</span>
+                  <span>Perspective 補正</span>
                 </label>
-                <label>豁ｪ縺ｿ驥・                  <input id="manual-distortion" type="number" min="-1.0" max="1.0" step="0.05">
+                <label>歪み量
+                  <input id="manual-distortion" type="number" min="-1.0" max="1.0" step="0.05">
                 </label>
                 <label>Brightness
                   <input id="brightness-offset" type="number" min="-100" max="100" step="1">
@@ -172,7 +177,7 @@
                   <input id="contrast-gain" type="number" min="0.1" max="3.0" step="0.1">
                 </label>
               </div>
-              <p class="hint">繝ｬ繝ｳ繧ｺ陬懈ｭ｣縺ｯ calibration.camera_matrix / dist_coeffs 縺後≠繧後・縺昴ｌ繧剃ｽｿ縺・√↑縺上※繧よｭｪ縺ｿ驥上〒霆ｽ縺乗焔蜍戊｣懈ｭ｣縺ｧ縺阪∪縺吶１erspective 陬懈ｭ｣縺ｯ讀懃衍縺ｨ騾溷ｺｦ險育ｮ励ｒ陬懈ｭ｣蠕後・蠎ｧ讓咏ｳｻ縺ｧ陦後≧繧ｹ繧､繝・メ縺ｧ縺吶・/p>
+              <p class="hint">レンズ補正は calibration.camera_matrix / dist_coeffs があればそれを使い、なくても歪み量で軽く手動補正できます。Perspective 補正は検知と速度計算を補正後の座標系で行うスイッチです。</p>
             </details>
           </div>
         </article>
@@ -181,44 +186,45 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Processing</p>
-              <h2>讀懃衍繝√Η繝ｼ繝九Φ繧ｰ</h2>
+              <h2>検知チューニング</h2>
             </div>
             <span class="pill">debug ready</span>
           </div>
           <div class="toggle-row">
-            <label class="inline compact checkbox-label"><input id="detection-enabled" type="checkbox"><span>讀懃衍 ON</span></label>
+            <label class="inline compact checkbox-label"><input id="detection-enabled" type="checkbox"><span>検知 ON</span></label>
             <label class="inline compact checkbox-label"><input id="blur-enabled" type="checkbox"><span>Blur</span></label>
             <label class="inline compact checkbox-label"><input id="morphology-enabled" type="checkbox"><span>Morphology</span></label>
-            <label class="inline compact checkbox-label"><input id="debug-mode" type="checkbox"><span>繝・ヰ繝・げ繝｢繝ｼ繝・/span></label>
-            <label class="inline compact checkbox-label"><input id="show-mask-preview" type="checkbox"><span>2蛟､蛹悶・繝ｬ繝薙Η繝ｼ</span></label>
-            <label class="inline compact checkbox-label"><input id="exclude-blue-floor" type="checkbox"><span>髱貞ｺ翫ｒ髯､螟・/span></label>
+            <label class="inline compact checkbox-label"><input id="debug-mode" type="checkbox"><span>デバッグモード</span></label>
+            <label class="inline compact checkbox-label"><input id="show-mask-preview" type="checkbox"><span>2値化プレビュー</span></label>
+            <label class="inline compact checkbox-label"><input id="exclude-blue-floor" type="checkbox"><span>青床を除外</span></label>
           </div>
           <div class="form-grid four">
-            <label>譛蟆剰ｼｪ驛ｭ繧ｵ繧､繧ｺ<input id="min-contour-area" type="number" min="1" step="1"></label>
-            <label>譛螟ｧ霈ｪ驛ｭ繧ｵ繧､繧ｺ<input id="max-contour-area" type="number" min="1" step="1"></label>
-            <label>譛蟆城溷ｺｦ km/h<input id="min-speed-kmh" type="number" min="0" step="0.1"></label>
-            <label>莠悟､蛹悶＠縺阪＞蛟､<input id="threshold-value" type="number" min="1" max="255" step="1"></label>
-            <label>譛螟ｧ騾溷ｺｦ km/h<input id="max-speed-kmh" type="number" min="1" step="0.1"></label>
-            <label>閭梧勹螻･豁ｴ<input id="background-history" type="number" min="1" step="1"></label>
-            <label>閭梧勹縺励″縺・､<input id="background-var-threshold" type="number" min="1" step="1"></label>
-            <label>繝悶Λ繝ｼ<input id="blur-kernel-size" type="number" min="1" step="2"></label>
-            <label>繝｢繝ｫ繝輔か繧ｵ繧､繧ｺ<input id="morph-kernel-size" type="number" min="1" step="2"></label>
-            <label>Open 蝗樊焚<input id="open-iterations" type="number" min="0" step="1"></label>
-            <label>Dilate 蝗樊焚<input id="dilate-iterations" type="number" min="0" step="1"></label>
-            <label>霑ｽ霍｡霍晞屬<input id="track-max-distance" type="number" min="1" step="1"></label>
-            <label>隕句､ｱ縺・ｨｱ螳ｹ繝輔Ξ繝ｼ繝<input id="track-max-missing-frames" type="number" min="1" step="1"></label>
-            <label>繧ｦ繧ｩ繝ｼ繝繧｢繝・・<input id="warmup-frames" type="number" min="0" step="1"></label>
+            <label>最小輪郭サイズ<input id="min-contour-area" type="number" min="1" step="1"></label>
+            <label>最大輪郭サイズ<input id="max-contour-area" type="number" min="1" step="1"></label>
+            <label>最小速度 km/h<input id="min-speed-kmh" type="number" min="0" step="0.1"></label>
+            <label>二値化しきい値<input id="threshold-value" type="number" min="1" max="255" step="1"></label>
+            <label>最大速度 km/h<input id="max-speed-kmh" type="number" min="1" step="0.1"></label>
+            <label>背景履歴<input id="background-history" type="number" min="1" step="1"></label>
+            <label>背景しきい値<input id="background-var-threshold" type="number" min="1" step="1"></label>
+            <label>ブラー<input id="blur-kernel-size" type="number" min="1" step="2"></label>
+            <label>モルフォサイズ<input id="morph-kernel-size" type="number" min="1" step="2"></label>
+            <label>Open 回数<input id="open-iterations" type="number" min="0" step="1"></label>
+            <label>Dilate 回数<input id="dilate-iterations" type="number" min="0" step="1"></label>
+            <label>追跡距離<input id="track-max-distance" type="number" min="1" step="1"></label>
+            <label>見失い許容フレーム<input id="track-max-missing-frames" type="number" min="1" step="1"></label>
+            <label>ウォームアップ<input id="warmup-frames" type="number" min="0" step="1"></label>
           </div>
           <details class="details-box">
-            <summary>髱貞ｺ企勁螟・HSV</summary>
+            <summary>青床除外 HSV</summary>
             <div class="picker-grid">
-              <label>蝓ｺ貅冶牡
+              <label>基準色
                 <input id="blue-color-picker" type="color" value="#2d7ff9">
               </label>
-              <label>險ｱ螳ｹ蟷・                <input id="blue-tolerance" type="range" min="2" max="60" step="1" value="18">
+              <label>許容幅
+                <input id="blue-tolerance" type="range" min="2" max="60" step="1" value="18">
               </label>
               <div class="picker-actions">
-                <button id="apply-blue-picker" type="button" class="ghost">蝓ｺ貅冶牡縺九ｉ HSV 縺ｫ蜿肴丐</button>
+                <button id="apply-blue-picker" type="button" class="ghost">基準色から HSV に反映</button>
                 <p id="blue-picker-label" class="hint"></p>
               </div>
             </div>
@@ -249,7 +255,7 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Live</p>
-              <h2>繝ｩ繧､繝・/h2>
+              <h2>ライブ</h2>
             </div>
             <span class="pill">/stream</span>
           </div>
@@ -260,26 +266,26 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Detections</p>
-              <h2>譛譁ｰ繝ｭ繧ｰ</h2>
+              <h2>最新ログ</h2>
             </div>
             <div class="mini-actions">
-              <span class="pill">譛譁ｰ20莉ｶ</span>
-              <button id="clear-events" type="button" class="ghost">豸亥悉</button>
+              <span class="pill">最新20件</span>
+              <button id="clear-events" type="button" class="ghost">消去</button>
             </div>
           </div>
           <div class="event-log-shell">
             <table class="event-log-table">
               <thead>
                 <tr>
-                  <th>譎ょ綾</th>
+                  <th>時刻</th>
                   <th>ID</th>
-                  <th>騾溷ｺｦ</th>
-                  <th>蠎ｧ讓・/th>
+                  <th>速度</th>
+                  <th>座標</th>
                 </tr>
               </thead>
               <tbody id="event-log-body">
                 <tr>
-                  <td colspan="4" class="empty-row">縺ｾ縺讀懃衍繝ｭ繧ｰ縺ｯ縺ゅｊ縺ｾ縺帙ｓ縲・/td>
+                  <td colspan="4" class="empty-row">まだ検知ログはありません。</td>
                 </tr>
               </tbody>
             </table>
@@ -290,32 +296,32 @@
           <div class="panel-header">
             <div>
               <p class="panel-label">Perspective Preview</p>
-              <h2>繝代・繧ｹ陬懈ｭ｣繝励Ξ繝薙Η繝ｼ</h2>
+              <h2>パース補正プレビュー</h2>
             </div>
             <span class="pill">snapshot</span>
           </div>
           <img id="perspective-preview" class="stream preview is-empty" alt="Perspective preview">
-          <p class="hint">繧ｹ繝翫ャ繝励す繝ｧ繝・ヨ縺九ｉ逕滓・縺吶ｋ陬懈ｭ｣蠕後・繝ｬ繝薙Η繝ｼ縺ｧ縺吶ら判蜒上′縺ｾ縺辟｡縺・ｴ蜷医・遨ｺ陦ｨ遉ｺ縺ｫ縺ｪ繧翫∪縺吶・/p>
+          <p class="hint">スナップショットから生成する補正後プレビューです。画像がまだ無い場合は空表示になります。</p>
         </article>
 
         <article class="panel compact-panel">
           <p class="panel-label">Camera</p>
-          <h2>繧ｫ繝｡繝ｩ</h2>
+          <h2>カメラ</h2>
           <div class="form-grid two">
-            <label>蜈･蜉帙た繝ｼ繧ｹ
+            <label>入力ソース
               <select id="camera-type">
                 <option value="usb">USB</option>
                 <option value="csi">CSI</option>
                 <option value="rtsp">RTSP</option>
               </select>
             </label>
-            <label id="camera-device-label">繝・ヰ繧､繧ｹ
+            <label id="camera-device-label">デバイス
               <input id="camera-device" type="number" min="0" step="1">
             </label>
-            <label>蟷・input id="camera-width" type="number" min="1" step="1"></label>
-            <label>鬮倥＆<input id="camera-height" type="number" min="1" step="1"></label>
+            <label>幅<input id="camera-width" type="number" min="1" step="1"></label>
+            <label>高さ<input id="camera-height" type="number" min="1" step="1"></label>
             <label>FPS<input id="camera-fps" type="number" min="1" step="1"></label>
-            <label>繝繧ｦ繝ｳ繧ｹ繧ｱ繝ｼ繝ｫ<input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1"></label>
+            <label>ダウンスケール<input id="downscale-factor" type="number" min="0.1" max="1.0" step="0.1"></label>
             <label id="rtsp-url-label" class="span-two">RTSP URL
               <input id="rtsp-url" type="text" placeholder="rtsp://user:pass@camera/stream">
             </label>
@@ -328,20 +334,20 @@
       <div class="panel-header">
         <div>
           <p class="panel-label">Guide</p>
-          <h2>讀懃衍繝√Η繝ｼ繝九Φ繧ｰ縺ｮ逶ｮ螳・/h2>
+          <h2>検知チューニングの目安</h2>
         </div>
       </div>
       <div class="help-grid">
-        <article class="help-card"><h3>蜈･蜉帙た繝ｼ繧ｹ蛻・崛</h3><p>USB / CSI / RTSP 縺ｯ繝励Ν繝繧ｦ繝ｳ縺ｧ蛻・ｊ譖ｿ縺医∪縺吶３TSP 驕ｸ謚樊凾縺縺・URL 縺悟ｿ・医〒縺吶・/p></article>
-        <article class="help-card"><h3>譛蟆剰ｼｪ驛ｭ / 譛螟ｧ霈ｪ驛ｭ</h3><p>蟆上＆縺吶℃繧九ヮ繧､繧ｺ繧・､ｧ縺阪☆縺弱ｋ隱､讀懃衍繧呈椛縺医ｋ蝓ｺ譛ｬ繝代Λ繝｡繝ｼ繧ｿ縺ｧ縺吶ゅョ繝舌ャ繧ｰ繝｢繝ｼ繝峨〒縺ｯ霈ｪ驛ｭ繧ｵ繧､繧ｺ繧り｡ｨ遉ｺ縺輔ｌ縺ｾ縺吶・/p></article>
-        <article class="help-card"><h3>縺励″縺・､</h3><p>閭梧勹蟾ｮ蛻・ｾ後・莠悟､蛹門ｼｷ蠎ｦ縺ｧ縺吶ゆｸ翫￡繧九→繝弱う繧ｺ縺ｯ貂帙ｊ縲∽ｸ翫￡縺吶℃繧九→蟇ｾ雎｡繧よｶ医∴縺ｾ縺吶・/p></article>
-        <article class="help-card"><h3>閭梧勹螻･豁ｴ / 閭梧勹縺励″縺・､</h3><p>閭梧勹繝｢繝・Ν縺ｮ霑ｽ蠕馴溷ｺｦ縺ｨ諢溷ｺｦ縺ｫ蜉ｹ縺阪∪縺吶ら腸蠅・､牙喧縺悟､ｧ縺阪＞蝣ｴ蜷医・螻･豁ｴ繧堤洒繧√↓縺励∪縺吶・/p></article>
-        <article class="help-card"><h3>Blur / Morphology</h3><p>Blur 縺ｯ邏ｰ縺九＞繝弱う繧ｺ菴取ｸ帙｀orphology 縺ｯ遨ｴ蝓九ａ繧・ｰ冗援髯､蜴ｻ縺ｫ譛牙柑縺ｧ縺吶る㍾縺・ｴ蜷医・荳｡譁ｹ繧ｪ繝輔〒豈碑ｼ・〒縺阪∪縺吶・/p></article>
-        <article class="help-card"><h3>Open / Dilate</h3><p>Open 縺ｯ蟆上＆縺ｪ繧ｴ繝滄勁蜴ｻ縲．ilate 縺ｯ讀懃衍鬆伜沺縺ｮ閹ｨ蠑ｵ縺ｧ縺吶ゅｄ繧翫☆縺弱ｋ縺ｨ霈ｪ驛ｭ縺悟､ｪ繧翫∪縺吶・/p></article>
-        <article class="help-card"><h3>霑ｽ霍｡霍晞屬 / 隕句､ｱ縺・ｨｱ螳ｹ</h3><p>繝輔Ξ繝ｼ繝髢薙・邏蝉ｻ倥￠譚｡莉ｶ縺ｧ縺吶る溘＞陲ｫ蜀吩ｽ薙〒縺ｯ霍晞屬繧貞ｰ代＠蠎・￡繧九→螳牙ｮ壹＠繧・☆縺上↑繧翫∪縺吶・/p></article>
-        <article class="help-card"><h3>Line Crossing</h3><p>Line A 縺ｨ Line B 縺ｮ騾夐℃譎る俣蟾ｮ縺ｧ騾溷ｺｦ繧堤ｮ怜・縺励∪縺吶Ｅistance_m 縺ｫ縺ｯ2譛ｬ髢薙・螳溯ｷ晞屬繧貞・繧後∪縺吶・/p></article>
-        <article class="help-card"><h3>ppm / px/s</h3><p>Scale 譛ｪ險ｭ螳壽凾縺ｯ px/s 陦ｨ遉ｺ縺ｧ縺吶ょｮ滄溷ｺｦ縺ｫ縺励◆縺・ｴ蜷医・ 2轤ｹ縺ｨ譌｢遏･霍晞屬繧貞・繧後※ ppm 繧呈ｱｺ繧√∪縺吶・/p></article>
-        <article class="help-card"><h3>逶｣隕悶Ξ繧､繧｢繧ｦ繝・/h3><p>邱ｨ髮・ｾ後・逶｣隕悶Ξ繧､繧｢繧ｦ繝医↓蛻・ｊ譖ｿ縺医ｋ縺ｨ縲√せ繝翫ャ繝励す繝ｧ繝・ヨ繧貞ｰ上＆縺上＠縺ｦ繝ｩ繧､繝悶→譛譁ｰ繝ｭ繧ｰ繧定ｦ九ｄ縺吶￥縺ｧ縺阪∪縺吶・/p></article>
+        <article class="help-card"><h3>入力ソース切替</h3><p>USB / CSI / RTSP はプルダウンで切り替えます。RTSP 選択時だけ URL が必須です。</p></article>
+        <article class="help-card"><h3>最小輪郭 / 最大輪郭</h3><p>小さすぎるノイズや大きすぎる誤検知を抑える基本パラメータです。デバッグモードでは輪郭サイズも表示されます。</p></article>
+        <article class="help-card"><h3>しきい値</h3><p>背景差分後の二値化強度です。上げるとノイズは減り、上げすぎると対象も消えます。</p></article>
+        <article class="help-card"><h3>背景履歴 / 背景しきい値</h3><p>背景モデルの追従速度と感度に効きます。環境変化が大きい場合は履歴を短めにします。</p></article>
+        <article class="help-card"><h3>Blur / Morphology</h3><p>Blur は細かいノイズ低減、Morphology は穴埋めや小片除去に有効です。重い場合は両方オフで比較できます。</p></article>
+        <article class="help-card"><h3>Open / Dilate</h3><p>Open は小さなゴミ除去、Dilate は検知領域の膨張です。やりすぎると輪郭が太ります。</p></article>
+        <article class="help-card"><h3>追跡距離 / 見失い許容</h3><p>フレーム間の紐付け条件です。速い被写体では距離を少し広げると安定しやすくなります。</p></article>
+        <article class="help-card"><h3>Line Crossing</h3><p>Line A と Line B の通過時間差で速度を算出します。distance_m には2本間の実距離を入れます。</p></article>
+        <article class="help-card"><h3>ppm / px/s</h3><p>Scale 未設定時は px/s 表示です。実速度にしたい場合は 2点と既知距離を入れて ppm を決めます。</p></article>
+        <article class="help-card"><h3>監視レイアウト</h3><p>編集後は監視レイアウトに切り替えると、スナップショットを小さくしてライブと最新ログを見やすくできます。</p></article>
       </div>
     </section>
   </main>
