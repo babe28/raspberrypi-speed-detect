@@ -838,6 +838,38 @@ button.ghost {
   gap: 18px;
 }
 
+.monitor-log-list-wrap {
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 20px;
+  border: 1px solid rgba(17, 33, 31, 0.08);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.monitor-log-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.monitor-log-table th,
+.monitor-log-table td {
+  padding: 11px 12px;
+  text-align: left;
+  border-bottom: 1px solid rgba(17, 33, 31, 0.08);
+}
+
+.monitor-log-table th {
+  background: rgba(244, 251, 249, 0.96);
+  color: var(--accent-strong);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.monitor-log-table tbody tr:nth-child(odd) {
+  background: rgba(11, 122, 117, 0.04);
+}
+
 .monitor-latest-speed-row {
   display: flex;
   align-items: baseline;

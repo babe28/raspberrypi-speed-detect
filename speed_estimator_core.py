@@ -83,9 +83,13 @@ class SpeedEstimator:
         self.contrast_gain = float(processing.get("contrast_gain", 1.0))
         self.blur_enabled = bool(processing["blur_enabled"])
         self.morphology_enabled = bool(processing["morphology_enabled"])
+        self.line_crossing_fast_mode = bool(processing.get("line_crossing_fast_mode", False))
         self.exclude_blue_floor = bool(processing["exclude_blue_floor"])
         self.blue_hsv_low = np.array(processing["blue_hsv_low"], dtype=np.uint8)
         self.blue_hsv_high = np.array(processing["blue_hsv_high"], dtype=np.uint8)
+        self.line_crossing_fast_active = (
+            self.measurement_mode == "line_crossing" and self.line_crossing_fast_mode
+        )
         self.effective_min_contour_area = self.min_contour_area
         self.effective_track_max_distance = self.track_max_distance
         self.matchable_missing_frames = self.track_max_missing_frames
@@ -146,7 +150,8 @@ class SpeedEstimator:
         display_frame = self._apply_image_correction(display_frame)
         detection_frame = self._apply_perspective(display_frame)
         self.frame_index += 1
-        self._prune_measurements()
+        if not self.line_crossing_fast_active:
+            self._prune_measurements()
         mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
         processed_this_frame = False
         if not self.detection_enabled:
@@ -233,7 +238,8 @@ class SpeedEstimator:
 
     def _motion_mask(self, frame: np.ndarray) -> np.ndarray:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        if self.blur_enabled and self.blur_kernel_size > 1:
+        use_blur = self.blur_enabled and not self.line_crossing_fast_active
+        if use_blur and self.blur_kernel_size > 1:
             gray = cv2.GaussianBlur(gray, (self.blur_kernel_size, self.blur_kernel_size), 0)
         fg_mask = self.background_subtractor.apply(gray)
 
@@ -249,7 +255,7 @@ class SpeedEstimator:
         _, fg_mask = cv2.threshold(
             fg_mask, self.effective_threshold_value, 255, cv2.THRESH_BINARY
         )
-        if self.blur_enabled and self.blur_kernel_size > 1:
+        if use_blur and self.blur_kernel_size > 1:
             fg_mask = cv2.medianBlur(fg_mask, self.blur_kernel_size)
         if self.morphology_enabled:
             fg_mask = cv2.morphologyEx(
@@ -433,14 +439,15 @@ class SpeedEstimator:
         track.crossed_lines.clear()
         if event is None:
             return None
-        self._upsert_active_measurement(
-            track_id=track.track_id,
-            centroid=current_centroid,
-            label=event["speed_label"],
-            color=event["color"],
-            subdued=bool(event.get("subdued", False)),
-            kind="line_crossing",
-        )
+        if not self.line_crossing_fast_active:
+            self._upsert_active_measurement(
+                track_id=track.track_id,
+                centroid=current_centroid,
+                label=event["speed_label"],
+                color=event["color"],
+                subdued=bool(event.get("subdued", False)),
+                kind="line_crossing",
+            )
         track.speed_kmh = speed_kmh
         track.speed_px_s = 0.0
         return event
@@ -620,7 +627,7 @@ class SpeedEstimator:
         has_perspective_overlay = self.display_perspective_polygon is not None
         has_event_boxes = bool(events) and (self.measurement_mode == "tracking" or self.debug_mode)
         has_lines = self.measurement_mode == "line_crossing"
-        has_active_measurements = bool(self.active_measurements)
+        has_active_measurements = bool(self.active_measurements) and not self.line_crossing_fast_active
         has_text_overlays = self.debug_mode or self.show_fps_overlay or self.show_mask_preview
         if not (
             has_roi_overlay

@@ -526,9 +526,10 @@ function fillForm(config) {
 
   setValue("downscale-factor", processing.downscale_factor);
   setValue("frame-skip", processing.frame_skip ?? 0);
-  setValue("stream-frame-skip", processing.stream_frame_skip ?? 0);
-  setValue("stream-jpeg-quality", processing.stream_jpeg_quality ?? 80);
+  setValue("stream-frame-skip", processing.stream_frame_skip ?? 1);
+  setValue("stream-jpeg-quality", processing.stream_jpeg_quality ?? 50);
   document.getElementById("detection-enabled").checked = Boolean(processing.detection_enabled);
+  document.getElementById("line-crossing-fast-mode").checked = Boolean(processing.line_crossing_fast_mode);
   setValue("min-contour-area", processing.min_contour_area);
   setValue("max-contour-area", processing.max_contour_area);
   setValue("min-speed-kmh", processing.min_speed_kmh ?? 0);
@@ -918,6 +919,7 @@ function buildProcessingPayload() {
     brightness_offset: Number(getValue("brightness-offset")),
     contrast_gain: Number(getValue("contrast-gain")),
     stream_jpeg_quality: Number(getValue("stream-jpeg-quality")),
+    line_crossing_fast_mode: getChecked("line-crossing-fast-mode"),
     blur_enabled: getChecked("blur-enabled"),
     morphology_enabled: getChecked("morphology-enabled"),
     blue_hsv_low: [

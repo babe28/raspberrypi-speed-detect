@@ -80,7 +80,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "detection_enabled": False,
         "downscale_factor": 0.5,
         "frame_skip": 0,
-        "stream_frame_skip": 0,
+        "stream_frame_skip": 1,
         "min_contour_area": 500,
         "max_contour_area": 50000,
         "min_speed_kmh": 0.0,
@@ -103,7 +103,8 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "perspective_enabled": True,
         "brightness_offset": 0,
         "contrast_gain": 1.0,
-        "stream_jpeg_quality": 80,
+        "stream_jpeg_quality": 50,
+        "line_crossing_fast_mode": False,
         "blur_enabled": True,
         "morphology_enabled": True,
         "exclude_blue_floor": False,
@@ -310,6 +311,7 @@ class ConfigManager:
         processing["brightness_offset"] = int(processing.get("brightness_offset", 0))
         processing["contrast_gain"] = max(0.1, float(processing.get("contrast_gain", 1.0)))
         processing["stream_jpeg_quality"] = int(processing.get("stream_jpeg_quality", 80))
+        processing["line_crossing_fast_mode"] = bool(processing.get("line_crossing_fast_mode", False))
         processing["blur_enabled"] = bool(processing.get("blur_enabled", True))
         processing["morphology_enabled"] = bool(processing.get("morphology_enabled", True))
         processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))

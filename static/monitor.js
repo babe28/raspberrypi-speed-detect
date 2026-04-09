@@ -6,6 +6,7 @@ const latestTimeEl = document.getElementById("monitor-latest-time");
 const latestIdEl = document.getElementById("monitor-latest-id");
 const latestModeEl = document.getElementById("monitor-latest-mode");
 const latestPositionEl = document.getElementById("monitor-latest-position");
+const monitorLogBodyEl = document.getElementById("monitor-log-body");
 const officialAverageEl = document.getElementById("monitor-official-average");
 const remainingDistanceEl = document.getElementById("monitor-remaining-distance");
 const globalBiasEl = document.getElementById("monitor-global-bias");
@@ -133,6 +134,7 @@ function renderLatestLog() {
   if (!latest) {
     latestEmptyEl.hidden = false;
     latestCardEl.hidden = true;
+    monitorLogBodyEl.innerHTML = '<tr><td colspan="5" class="empty-row">まだ検知ログはありません。</td></tr>';
     return;
   }
 
@@ -145,6 +147,22 @@ function renderLatestLog() {
   latestPositionEl.textContent = Number.isFinite(Number(latest.center_x)) && Number.isFinite(Number(latest.center_y))
     ? `${Number(latest.center_x).toFixed(0)}, ${Number(latest.center_y).toFixed(0)}`
     : "--";
+
+  monitorLogBodyEl.innerHTML = state.events
+    .slice(0, 5)
+    .map((event) => {
+      const goal = event.estimated_goal_time_label || computeProjection(event.raw_speed_kmh ?? event.speed_kmh)?.label || "--";
+      return `
+        <tr>
+          <td>${event.timestamp_label || "--"}</td>
+          <td>${event.id ?? "--"}</td>
+          <td>${event.mode === "line_crossing" ? "Line Crossing" : "Tracking"}</td>
+          <td>${event.speed_label || "--"}</td>
+          <td>${goal}</td>
+        </tr>
+      `;
+    })
+    .join("");
 }
 
 async function loadConfig() {
