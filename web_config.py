@@ -4,9 +4,12 @@ import base64
 import copy
 from collections import deque
 from datetime import datetime
+import fcntl
 import json
 import logging
 from pathlib import Path
+import socket
+import struct
 from threading import Event, Lock, Thread
 import time
 from typing import Any
@@ -448,6 +451,25 @@ def _json_error(message: str, status: int = 400, details: str | None = None) -> 
     return jsonify(payload), status
 
 
+def _interface_ipv4_address(interface_name: str) -> str | None:
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        request = struct.pack("256s", interface_name[:15].encode("utf-8"))
+        response = fcntl.ioctl(sock.fileno(), 0x8915, request)
+        return socket.inet_ntoa(response[20:24])
+    except OSError:
+        return None
+
+
+def _startup_addresses() -> list[tuple[str, str]]:
+    addresses: list[tuple[str, str]] = []
+    for interface_name in ("eth0", "wlan0"):
+        address = _interface_ipv4_address(interface_name)
+        if address:
+            addresses.append((interface_name, address))
+    return addresses
+
+
 @app.get("/")
 def index() -> str:
     ensure_processor_started()
@@ -697,4 +719,8 @@ def stream() -> Response:
 
 
 if __name__ == "__main__":
+    print("Soapbox Speed Camera starting on port 5000")
+    for interface_name, address in _startup_addresses():
+        print(f"  {interface_name}: http://{address}:5000")
+    print("  localhost: http://127.0.0.1:5000")
     app.run(host="0.0.0.0", port=5000, debug=False, threaded=True)

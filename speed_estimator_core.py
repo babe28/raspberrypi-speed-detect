@@ -132,6 +132,7 @@ class SpeedEstimator:
         self.next_track_id = 1
         self.csv_writer: csv.writer | None = None
         self.csv_handle = None
+        self.csv_pending_flush_count = 0
         self._setup_logging()
         self.latest_display_frame: np.ndarray | None = None
         self.latest_detection_frame: np.ndarray | None = None
@@ -150,8 +151,7 @@ class SpeedEstimator:
         display_frame = self._apply_image_correction(display_frame)
         detection_frame = self._apply_perspective(display_frame)
         self.frame_index += 1
-        if not self.line_crossing_fast_active:
-            self._prune_measurements()
+        self._prune_measurements()
         mask = np.zeros(detection_frame.shape[:2], dtype=np.uint8)
         processed_this_frame = False
         if not self.detection_enabled:
@@ -183,6 +183,7 @@ class SpeedEstimator:
 
     def close(self) -> None:
         if self.csv_handle is not None:
+            self.csv_handle.flush()
             self.csv_handle.close()
             self.csv_handle = None
 
@@ -439,15 +440,14 @@ class SpeedEstimator:
         track.crossed_lines.clear()
         if event is None:
             return None
-        if not self.line_crossing_fast_active:
-            self._upsert_active_measurement(
-                track_id=track.track_id,
-                centroid=current_centroid,
-                label=event["speed_label"],
-                color=event["color"],
-                subdued=bool(event.get("subdued", False)),
-                kind="line_crossing",
-            )
+        self._upsert_active_measurement(
+            track_id=track.track_id,
+            centroid=current_centroid,
+            label=event["speed_label"],
+            color=event["color"],
+            subdued=bool(event.get("subdued", False)),
+            kind="line_crossing",
+        )
         track.speed_kmh = speed_kmh
         track.speed_px_s = 0.0
         return event
@@ -627,7 +627,7 @@ class SpeedEstimator:
         has_perspective_overlay = self.display_perspective_polygon is not None
         has_event_boxes = bool(events) and (self.measurement_mode == "tracking" or self.debug_mode)
         has_lines = self.measurement_mode == "line_crossing"
-        has_active_measurements = bool(self.active_measurements) and not self.line_crossing_fast_active
+        has_active_measurements = bool(self.active_measurements)
         has_text_overlays = self.debug_mode or self.show_fps_overlay or self.show_mask_preview
         if not (
             has_roi_overlay
@@ -852,7 +852,10 @@ class SpeedEstimator:
         self.csv_writer.writerow(
             [f"{timestamp:.3f}", event["id"], f"{event['speed_kmh']:.3f}", center_x, center_y]
         )
-        self.csv_handle.flush()
+        self.csv_pending_flush_count += 1
+        if self.csv_pending_flush_count >= 5:
+            self.csv_handle.flush()
+            self.csv_pending_flush_count = 0
 
     def _format_speed_label(self, speed_kmh: float, speed_px_s: float) -> str:
         if self.scale_ppm > 0:
