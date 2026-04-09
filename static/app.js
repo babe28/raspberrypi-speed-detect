@@ -22,6 +22,7 @@ const rtspUrlLabelEl = document.getElementById("rtsp-url-label");
 const monitorLayoutButtonEl = document.getElementById("toggle-monitor-focus");
 const usbControlsPanelEl = document.getElementById("usb-controls-panel");
 const csiControlsPanelEl = document.getElementById("csi-controls-panel");
+const csiTuningFileOptionsEl = document.getElementById("csi-tuning-file-options");
 const liveFpsPillEl = document.getElementById("live-fps-pill");
 const diagnosticsPanelEl = document.getElementById("diagnostics-panel");
 const processorStatusEl = document.getElementById("processor-status");
@@ -63,6 +64,7 @@ const state = {
   recentEvents: [],
   compareMode: false,
   presets: [],
+  csiTuningFiles: [],
 };
 
 state.image.addEventListener("load", () => {
@@ -91,6 +93,18 @@ function getChecked(id) {
 
 function setOptionalValue(id, value) {
   document.getElementById(id).value = value ?? "";
+}
+
+function renderCsiTuningOptions(files) {
+  if (!csiTuningFileOptionsEl) {
+    return;
+  }
+  csiTuningFileOptionsEl.innerHTML = "";
+  files.forEach((file) => {
+    const option = document.createElement("option");
+    option.value = file;
+    csiTuningFileOptionsEl.appendChild(option);
+  });
 }
 
 function formatSeconds(seconds) {
@@ -668,6 +682,17 @@ async function loadRecentEvents() {
   updateRaceReferenceSummary();
 }
 
+async function loadCsiTuningFiles() {
+  try {
+    const data = await fetchJson("/api/csi-tuning-files");
+    state.csiTuningFiles = Array.isArray(data.files) ? data.files : [];
+    renderCsiTuningOptions(state.csiTuningFiles);
+  } catch {
+    state.csiTuningFiles = [];
+    renderCsiTuningOptions([]);
+  }
+}
+
 async function clearRecentEvents() {
   await fetchJson("/api/recent-events/clear", { method: "POST" });
   state.recentEvents = [];
@@ -732,6 +757,9 @@ async function loadProcessorStats() {
     : "--";
   const processorBits = [];
   processorBits.push(`frame skip ${data.frame_skip ?? 0}`);
+  if (csi.tuning_file) {
+    processorBits.push(`tuning ${csi.tuning_file}`);
+  }
   if (data.process_interval) {
     processorBits.push(`${data.process_interval} frame interval`);
   }
@@ -1169,6 +1197,7 @@ globalBiasEnabledEl.addEventListener("change", updateRaceReferenceSummary);
 setMode("pan");
 setMonitorFocus(false);
 setCompareMode(false);
+loadCsiTuningFiles().catch(() => {});
 loadConfig().catch((error) => setStatus(error.message, true));
 loadRecentEvents().catch((error) => setStatus(error.message, true));
 loadProcessorStats().catch(() => {});

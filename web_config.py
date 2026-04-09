@@ -40,6 +40,7 @@ diagnostic_frames_lock = Lock()
 event_history: deque[dict[str, Any]] = deque(maxlen=300)
 event_history_lock = Lock()
 PRESETS_PATH = Path("config_presets.json")
+CSI_TUNING_DIR = Path("lens-json")
 
 
 class SuppressRecentEventsFilter(logging.Filter):
@@ -285,6 +286,17 @@ def _preset_summary() -> list[dict[str, Any]]:
     return summary
 
 
+def _list_csi_tuning_files() -> list[str]:
+    if not CSI_TUNING_DIR.exists() or not CSI_TUNING_DIR.is_dir():
+        return []
+    files = sorted(
+        path.relative_to(Path.cwd()).as_posix()
+        for path in CSI_TUNING_DIR.glob("*.json")
+        if path.is_file()
+    )
+    return files
+
+
 def _store_latest_snapshot(frame: np.ndarray) -> None:
     global latest_snapshot_jpeg
     success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
@@ -489,6 +501,11 @@ def get_diagnostics_frames() -> Response:
 @app.get("/api/presets")
 def get_presets() -> Response:
     return jsonify({"presets": _preset_summary()})
+
+
+@app.get("/api/csi-tuning-files")
+def get_csi_tuning_files() -> Response:
+    return jsonify({"files": _list_csi_tuning_files()})
 
 
 @app.post("/api/presets/<int:slot>/save")
