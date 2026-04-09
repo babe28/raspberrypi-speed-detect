@@ -23,7 +23,6 @@ const monitorLayoutButtonEl = document.getElementById("toggle-monitor-focus");
 const usbControlsPanelEl = document.getElementById("usb-controls-panel");
 const csiControlsPanelEl = document.getElementById("csi-controls-panel");
 const csiTuningFileOptionsEl = document.getElementById("csi-tuning-file-options");
-const liveFpsPillEl = document.getElementById("live-fps-pill");
 const diagnosticsPanelEl = document.getElementById("diagnostics-panel");
 const processorStatusEl = document.getElementById("processor-status");
 const comparePanelEl = document.getElementById("compare-panel");
@@ -733,7 +732,6 @@ async function loadProcessorStats() {
   const inputFps = Number(data.input_fps || 0);
   const processFps = Number(data.process_fps || 0);
   const frameMs = Number(data.last_frame_ms || 0);
-  liveFpsPillEl.textContent = `FPS ${inputFps > 0 ? inputFps.toFixed(1) : "--"}`;
   const debugMode = Boolean(document.getElementById("debug-mode")?.checked || state.config?.processing?.debug_mode);
   diagnosticsPanelEl.hidden = !debugMode;
   if (!debugMode) {

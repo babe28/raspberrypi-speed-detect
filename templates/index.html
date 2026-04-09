@@ -282,7 +282,6 @@
               <h2>ライブ</h2>
             </div>
             <div class="mini-actions">
-              <span id="live-fps-pill" class="pill">FPS --</span>
               <button id="toggle-compare-mode" type="button" class="ghost">比較モード</button>
             </div>
           </div>
@@ -440,7 +439,7 @@
                 <input id="csi-exposure-time-us" type="number" min="1" step="100" placeholder="未指定">
               </label>
               <label>アナログゲイン
-                <input id="csi-analogue-gain" type="number" min="0.1" step="0.1" placeholder="未指定">
+                <input id="csi-analogue-gain" type="number" min="0.1" max="32" step="0.1" placeholder="未指定">
               </label>
               <label class="span-two">Tuning JSON
                 <input id="csi-tuning-file" type="text" list="csi-tuning-file-options" placeholder="lens-json/imx219_80d.json">
@@ -459,13 +458,14 @@
                 <input id="csi-sharpness" type="number" min="0" max="16" step="0.1">
               </label>
               <label>赤ゲイン
-                <input id="csi-colour-gain-red" type="number" min="0.1" step="0.1" placeholder="未指定">
+                <input id="csi-colour-gain-red" type="number" min="0.1" max="32" step="0.1" placeholder="未指定">
               </label>
               <label>青ゲイン
-                <input id="csi-colour-gain-blue" type="number" min="0.1" step="0.1" placeholder="未指定">
+                <input id="csi-colour-gain-blue" type="number" min="0.1" max="32" step="0.1" placeholder="未指定">
               </label>
             </div>
             <p class="hint">Arducam の Lens Shading JSON を使う場合は、`lens-json/imx219_80d.json` のように相対パスで指定できます。空欄なら標準 tuning を使います。</p>
+            <p class="hint">目安: Brightness は -1.0 から 1.0、Contrast と Saturation は 0.0 から 32.0、Sharpness は 0.0 から 16.0、Colour Gains は 0.0 から 32.0 です。Analogue Gain はカメラ構成で変わるので、まずは 1.0 前後から試すのが安全です。</p>
           </details>
         </article>
       </aside>

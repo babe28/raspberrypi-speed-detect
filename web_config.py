@@ -24,7 +24,7 @@ config_manager = ConfigManager()
 recent_events: deque[dict[str, Any]] = deque(maxlen=20)
 recent_events_lock = Lock()
 last_event_by_track: dict[int, dict[str, float]] = {}
-latest_snapshot_jpeg: bytes | None = None
+latest_snapshot_frame: np.ndarray | None = None
 latest_snapshot_lock = Lock()
 latest_stream_frame_jpeg: bytes | None = None
 latest_stream_frame_lock = Lock()
@@ -298,12 +298,9 @@ def _list_csi_tuning_files() -> list[str]:
 
 
 def _store_latest_snapshot(frame: np.ndarray) -> None:
-    global latest_snapshot_jpeg
-    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
-    if not success:
-        return
+    global latest_snapshot_frame
     with latest_snapshot_lock:
-        latest_snapshot_jpeg = buffer.tobytes()
+        latest_snapshot_frame = frame.copy()
 
 
 def _store_latest_stream_frame(frame: np.ndarray) -> None:
@@ -317,11 +314,10 @@ def _store_latest_stream_frame(frame: np.ndarray) -> None:
 
 def _latest_snapshot_frame() -> np.ndarray | None:
     with latest_snapshot_lock:
-        cached = latest_snapshot_jpeg
+        cached = latest_snapshot_frame
     if cached is None:
         return None
-    array = np.frombuffer(cached, dtype=np.uint8)
-    return cv2.imdecode(array, cv2.IMREAD_COLOR)
+    return cached.copy()
 
 
 def _build_perspective_preview() -> bytes | None:
@@ -515,7 +511,8 @@ def save_preset(slot: int) -> Response:
     payload = request.get_json(silent=True) or {}
     config_to_store = payload.get("config")
     if isinstance(config_to_store, dict):
-        normalized = copy.deepcopy(config_to_store)
+        normalized = copy.deepcopy(config_manager.load())
+        normalized.update(copy.deepcopy(config_to_store))
         config_manager._normalize(normalized)
         config_manager._validate(normalized)
         config_to_store = normalized
@@ -630,11 +627,15 @@ def save_perspective() -> Response:
 @app.get("/api/snapshot")
 def snapshot() -> Response:
     ensure_processor_started()
-    with latest_snapshot_lock:
-        cached = latest_snapshot_jpeg
-
-    if cached is not None:
-        encoded = base64.b64encode(cached).decode("ascii")
+    frame = _latest_snapshot_frame()
+    if frame is not None:
+        encoded_jpeg = _encode_jpeg(frame, 85)
+        if encoded_jpeg is None:
+            return (
+                jsonify({"error": "Snapshot could not be encoded yet."}),
+                503,
+            )
+        encoded = base64.b64encode(encoded_jpeg).decode("ascii")
         return jsonify({"image_base64": encoded, "source": "stream-cache"})
 
     return (

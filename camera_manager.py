@@ -105,13 +105,19 @@ class CameraManager:
         if self.camera_type == "csi":
             if self.picam2 is None:
                 return False, None
-            frame = self.picam2.capture_array()
             try:
-                metadata = self.picam2.capture_metadata()
+                request = self.picam2.capture_request()
+            except Exception:
+                return False, None
+            try:
+                frame = request.make_array("main")
+                metadata = request.get_metadata()
                 if isinstance(metadata, dict):
                     self.last_csi_metadata = metadata
-            except Exception:
-                self.last_csi_metadata = {}
+                else:
+                    self.last_csi_metadata = {}
+            finally:
+                request.release()
             if frame is None:
                 return False, None
             if frame.ndim == 3 and frame.shape[2] == 4:

@@ -97,6 +97,11 @@ class SpeedEstimator:
             varThreshold=float(processing["background_var_threshold"]),
             detectShadows=False,
         )
+        self.morph_kernel = (
+            np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
+            if self.morphology_enabled and self.morph_kernel_size > 0
+            else None
+        )
         self.roi_mask: np.ndarray | None = None
         self.homography_matrix = self._as_matrix(config["perspective"]["homography_matrix"])
         self.inverse_homography_matrix = self._invert_matrix(self.homography_matrix)
@@ -245,14 +250,13 @@ class SpeedEstimator:
         if self.blur_enabled and self.blur_kernel_size > 1:
             fg_mask = cv2.medianBlur(fg_mask, self.blur_kernel_size)
         if self.morphology_enabled:
-            kernel = np.ones((self.morph_kernel_size, self.morph_kernel_size), np.uint8)
             fg_mask = cv2.morphologyEx(
                 fg_mask,
                 cv2.MORPH_OPEN,
-                kernel,
+                self.morph_kernel,
                 iterations=self.open_iterations,
             )
-            fg_mask = cv2.dilate(fg_mask, kernel, iterations=self.dilate_iterations)
+            fg_mask = cv2.dilate(fg_mask, self.morph_kernel, iterations=self.dilate_iterations)
         return fg_mask
 
     def _find_detections(self, mask: np.ndarray) -> list[dict[str, Any]]:
