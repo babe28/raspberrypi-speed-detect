@@ -1,6 +1,6 @@
 {
   "camera": {
-    "type": "usb",
+    "type": "csi",
     "device": 0,
     "rtsp_enabled": false,
     "rtsp_url": "",

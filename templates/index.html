@@ -442,6 +442,9 @@
               <label>アナログゲイン
                 <input id="csi-analogue-gain" type="number" min="0.1" step="0.1" placeholder="未指定">
               </label>
+              <label class="span-two">Tuning JSON
+                <input id="csi-tuning-file" type="text" placeholder="lens-json/imx219_80d.json">
+              </label>
               <label>Brightness
                 <input id="csi-brightness" type="number" min="-1" max="1" step="0.1">
               </label>
@@ -461,6 +464,7 @@
                 <input id="csi-colour-gain-blue" type="number" min="0.1" step="0.1" placeholder="未指定">
               </label>
             </div>
+            <p class="hint">Arducam の Lens Shading JSON を使う場合は、`lens-json/imx219_80d.json` のように相対パスで指定できます。空欄なら標準 tuning を使います。</p>
           </details>
         </article>
       </aside>

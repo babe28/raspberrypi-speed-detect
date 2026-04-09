@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from pathlib import Path
 from typing import Any
 
 import cv2
@@ -26,6 +27,7 @@ class CameraManager:
         self.fps = camera_config["fps"]
         self.usb_settings = camera_config.get("usb_settings", {})
         self.csi_settings = camera_config.get("csi_settings", {})
+        self.csi_tuning_file = str(self.csi_settings.get("tuning_file", "")).strip()
         self.downscale_factor = float(config["processing"]["downscale_factor"])
         self.cap: cv2.VideoCapture | None = None
         self.picam2: Any = None
@@ -150,7 +152,21 @@ class CameraManager:
         if Picamera2 is None:
             raise RuntimeError("picamera2 is not installed but camera.type='csi' was selected")
 
-        self.picam2 = Picamera2()
+        if self.csi_tuning_file:
+            tuning_path = Path(self.csi_tuning_file).expanduser()
+            if not tuning_path.is_absolute():
+                tuning_path = Path.cwd() / tuning_path
+            if not tuning_path.exists():
+                raise RuntimeError(f"CSI tuning file could not be found: {tuning_path}")
+            try:
+                tuning = Picamera2.load_tuning_file(str(tuning_path))
+                self.picam2 = Picamera2(tuning=tuning)
+            except Exception as exc:
+                raise RuntimeError(
+                    f"CSI tuning file could not be loaded: {tuning_path} ({exc})"
+                ) from exc
+        else:
+            self.picam2 = Picamera2()
         controls = self._build_csi_controls()
         preview_config = self.picam2.create_preview_configuration(
             main={"size": (self.width, self.height), "format": "RGB888"},
@@ -250,6 +266,7 @@ class CameraManager:
         if self.camera_type == "csi":
             metadata = self.last_csi_metadata or {}
             info["csi"] = {
+                "tuning_file": self.csi_tuning_file or None,
                 "exposure_time_us": metadata.get("ExposureTime"),
                 "analogue_gain": metadata.get("AnalogueGain"),
                 "awb_enabled": metadata.get("AwbEnable"),

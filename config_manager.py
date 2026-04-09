@@ -24,6 +24,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
             "focus": None,
         },
         "csi_settings": {
+            "tuning_file": "",
             "auto_exposure": True,
             "exposure_time_us": None,
             "analogue_gain": None,
@@ -190,6 +191,7 @@ class ConfigManager:
         }
         csi_settings = camera.get("csi_settings", {})
         camera["csi_settings"] = {
+            "tuning_file": str(csi_settings.get("tuning_file", "")).strip(),
             "auto_exposure": bool(csi_settings.get("auto_exposure", True)),
             "exposure_time_us": self._normalize_optional_int(csi_settings.get("exposure_time_us")),
             "analogue_gain": self._normalize_optional_float(csi_settings.get("analogue_gain")),
@@ -343,6 +345,8 @@ class ConfigManager:
             raise ValueError("CSI colour_gain_red must be positive.")
         if camera["csi_settings"]["colour_gain_blue"] is not None and camera["csi_settings"]["colour_gain_blue"] <= 0:
             raise ValueError("CSI colour_gain_blue must be positive.")
+        if camera["csi_settings"]["tuning_file"] and not camera["csi_settings"]["tuning_file"].lower().endswith(".json"):
+            raise ValueError("CSI tuning_file must point to a .json file.")
 
         if not 0.1 <= processing["downscale_factor"] <= 1.0:
             raise ValueError("downscale_factor must be between 0.1 and 1.0.")

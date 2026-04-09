@@ -501,6 +501,7 @@ function fillForm(config) {
 
   document.getElementById("csi-auto-exposure").checked = Boolean(csiSettings.auto_exposure);
   document.getElementById("csi-auto-white-balance").checked = Boolean(csiSettings.auto_white_balance);
+  setValue("csi-tuning-file", csiSettings.tuning_file || "");
   setOptionalValue("csi-exposure-time-us", csiSettings.exposure_time_us);
   setOptionalValue("csi-analogue-gain", csiSettings.analogue_gain);
   setValue("csi-brightness", csiSettings.brightness ?? 0);
@@ -845,6 +846,7 @@ function buildUsbSettingsPayload() {
 
 function buildCsiSettingsPayload() {
   return {
+    tuning_file: getValue("csi-tuning-file").trim(),
     auto_exposure: getChecked("csi-auto-exposure"),
     exposure_time_us: getOptionalNumber("csi-exposure-time-us"),
     analogue_gain: getOptionalNumber("csi-analogue-gain"),
@@ -932,6 +934,7 @@ function validateBeforeSave() {
   const fps = Number(getValue("camera-fps"));
   const device = Number(getValue("camera-device"));
   const rtspUrl = getValue("rtsp-url").trim();
+  const csiTuningFile = getValue("csi-tuning-file").trim();
   const minArea = Number(getValue("min-contour-area"));
   const maxArea = Number(getValue("max-contour-area"));
   const minSpeed = Number(getValue("min-speed-kmh"));
@@ -960,6 +963,9 @@ function validateBeforeSave() {
   }
   if (sourceType === "rtsp" && !rtspUrl) {
     throw new Error("RTSP を使う場合は RTSP URL を入力してください。");
+  }
+  if (sourceType === "csi" && csiTuningFile && !csiTuningFile.toLowerCase().endsWith(".json")) {
+    throw new Error("CSI tuning file は .json を指定してください。");
   }
   if (downscale < 0.1 || downscale > 1.0) {
     throw new Error("ダウンスケールは 0.1 から 1.0 の範囲で入力してください。");
