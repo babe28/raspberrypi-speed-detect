@@ -8,7 +8,11 @@
       1280,
       720
     ],
-    "fps": 30
+    "fps": 30,
+    "usb_settings": {
+      "buffer_size": 1,
+      "auto_exposure": true
+    }
   },
   "calibration": {
     "camera_matrix": null,
@@ -46,8 +50,9 @@
     "max_contour_area": 50000,
     "min_speed_kmh": 0.5,
     "max_speed_kmh": 50.0,
+    "frame_skip": 0,
     "warmup_frames": 15,
-    "background_history": 300,
+    "background_history": 200,
     "background_var_threshold": 32,
     "threshold_value": 180,
     "blur_kernel_size": 5,

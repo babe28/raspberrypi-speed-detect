@@ -49,6 +49,10 @@ class CameraManager:
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
         self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+        
+        # USB buffer settings to prevent frame drops and freezes
+        if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
         if not self.cap.isOpened():
             raise RuntimeError(f"USB camera could not be opened: device={self.device}")
@@ -159,6 +163,11 @@ class CameraManager:
     def _apply_usb_settings(self) -> None:
         if self.cap is None:
             return
+        
+        # Apply buffer size setting
+        buffer_size = self.usb_settings.get("buffer_size", 1)
+        if hasattr(cv2, "CAP_PROP_BUFFERSIZE"):
+            self.cap.set(cv2.CAP_PROP_BUFFERSIZE, buffer_size)
 
         self._set_cap_prop("CAP_PROP_AUTO_EXPOSURE", 0.75 if self.usb_settings.get("auto_exposure", True) else 0.25)
         for prop_name, key in (

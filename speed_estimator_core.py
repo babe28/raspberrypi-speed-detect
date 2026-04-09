@@ -285,6 +285,8 @@ class SpeedEstimator:
 
         for detection in detections:
             track = self._find_nearest_track(detection["centroid"])
+            previous_centroid: tuple[float, float] | None = None
+            
             if track is None:
                 track = Track(
                     track_id=self.next_track_id,
@@ -326,7 +328,7 @@ class SpeedEstimator:
                     track.history = track.history[-6:]
 
             matched_track_ids.add(track.track_id)
-            if self.measurement_mode == "tracking":
+            if self.measurement_mode == "tracking" and previous_centroid is not None:
                 if self.scale_ppm > 0 and track.speed_kmh < self.min_speed_kmh:
                     continue
                 if not self._tracking_direction_matches(previous_centroid, track.centroid):
