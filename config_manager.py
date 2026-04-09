@@ -80,6 +80,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "detection_enabled": False,
         "downscale_factor": 0.5,
         "frame_skip": 0,
+        "stream_frame_skip": 0,
         "min_contour_area": 500,
         "max_contour_area": 50000,
         "min_speed_kmh": 0.0,
@@ -102,6 +103,7 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "perspective_enabled": True,
         "brightness_offset": 0,
         "contrast_gain": 1.0,
+        "stream_jpeg_quality": 80,
         "blur_enabled": True,
         "morphology_enabled": True,
         "exclude_blue_floor": False,
@@ -270,6 +272,7 @@ class ConfigManager:
         processing["detection_enabled"] = bool(processing.get("detection_enabled", False))
         processing["downscale_factor"] = float(processing.get("downscale_factor", 0.5))
         processing["frame_skip"] = max(0, int(processing.get("frame_skip", 0)))
+        processing["stream_frame_skip"] = max(0, int(processing.get("stream_frame_skip", 0)))
         processing["min_contour_area"] = int(processing.get("min_contour_area", 500))
         processing["max_contour_area"] = int(processing.get("max_contour_area", 50000))
         processing["min_speed_kmh"] = max(0.0, float(processing.get("min_speed_kmh", 0.0)))
@@ -306,6 +309,7 @@ class ConfigManager:
         processing["perspective_enabled"] = bool(processing.get("perspective_enabled", True))
         processing["brightness_offset"] = int(processing.get("brightness_offset", 0))
         processing["contrast_gain"] = max(0.1, float(processing.get("contrast_gain", 1.0)))
+        processing["stream_jpeg_quality"] = int(processing.get("stream_jpeg_quality", 80))
         processing["blur_enabled"] = bool(processing.get("blur_enabled", True))
         processing["morphology_enabled"] = bool(processing.get("morphology_enabled", True))
         processing["exclude_blue_floor"] = bool(processing.get("exclude_blue_floor", False))
@@ -352,6 +356,8 @@ class ConfigManager:
             raise ValueError("downscale_factor must be between 0.1 and 1.0.")
         if processing["frame_skip"] < 0 or processing["frame_skip"] > 10:
             raise ValueError("frame_skip must be between 0 and 10.")
+        if processing["stream_frame_skip"] < 0 or processing["stream_frame_skip"] > 10:
+            raise ValueError("stream_frame_skip must be between 0 and 10.")
         if processing["min_contour_area"] <= 0:
             raise ValueError("min_contour_area must be at least 1.")
         if processing["max_contour_area"] < processing["min_contour_area"]:
@@ -368,6 +374,8 @@ class ConfigManager:
             raise ValueError("track_max_distance must be positive.")
         if processing["track_max_missing_frames"] <= 0:
             raise ValueError("track_max_missing_frames must be at least 1.")
+        if processing["stream_jpeg_quality"] < 30 or processing["stream_jpeg_quality"] > 95:
+            raise ValueError("stream_jpeg_quality must be between 30 and 95.")
 
         if measurement["mode"] not in {"tracking", "line_crossing"}:
             raise ValueError("measurement.mode must be tracking or line_crossing.")

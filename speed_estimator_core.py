@@ -88,8 +88,10 @@ class SpeedEstimator:
         self.blue_hsv_high = np.array(processing["blue_hsv_high"], dtype=np.uint8)
         self.effective_min_contour_area = self.min_contour_area
         self.effective_track_max_distance = self.track_max_distance
+        self.matchable_missing_frames = self.track_max_missing_frames
         if self.measurement_mode == "line_crossing":
             self.effective_track_max_distance *= 1.2
+            self.matchable_missing_frames = min(self.track_max_missing_frames, 1)
         self.effective_threshold_value = self.threshold_value
         self.frame_index = 0
         self.background_subtractor = cv2.createBackgroundSubtractorMOG2(
@@ -296,7 +298,11 @@ class SpeedEstimator:
                     track_id=self.next_track_id,
                     centroid=detection["centroid"],
                     timestamp=now,
-                    history=[(detection["centroid"][0], detection["centroid"][1], now)],
+                    history=(
+                        [(detection["centroid"][0], detection["centroid"][1], now)]
+                        if self.measurement_mode != "line_crossing"
+                        else []
+                    ),
                 )
                 self.tracks[track.track_id] = track
                 self.next_track_id += 1
@@ -598,6 +604,8 @@ class SpeedEstimator:
         nearest_distance = self.effective_track_max_distance
 
         for track in self.tracks.values():
+            if track.missed_frames > self.matchable_missing_frames:
+                continue
             distance = math.hypot(track.centroid[0] - centroid[0], track.centroid[1] - centroid[1])
             if distance < nearest_distance:
                 nearest = track

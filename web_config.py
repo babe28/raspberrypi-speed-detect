@@ -303,9 +303,9 @@ def _store_latest_snapshot(frame: np.ndarray) -> None:
         latest_snapshot_frame = frame.copy()
 
 
-def _store_latest_stream_frame(frame: np.ndarray) -> None:
+def _store_latest_stream_frame(frame: np.ndarray, quality: int = 80) -> None:
     global latest_stream_frame_jpeg
-    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    success, buffer = cv2.imencode(".jpg", frame, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
     if not success:
         return
     with latest_stream_frame_lock:
@@ -388,6 +388,9 @@ def _processing_loop() -> None:
 
     processor_error = None
     try:
+        stream_frame_skip = max(0, int(config["processing"].get("stream_frame_skip", 0)))
+        stream_quality = int(config["processing"].get("stream_jpeg_quality", 80))
+        stream_counter = 0
         while not processor_stop_event.is_set():
             ok, frame = camera.read()
             if not ok or frame is None:
@@ -397,7 +400,9 @@ def _processing_loop() -> None:
 
             _store_latest_snapshot(frame)
             annotated, events = estimator.process(frame)
-            _store_latest_stream_frame(annotated)
+            if stream_counter % (stream_frame_skip + 1) == 0:
+                _store_latest_stream_frame(annotated, stream_quality)
+            stream_counter += 1
             _store_diagnostic_frames(estimator, annotated)
             _store_processor_metrics(estimator.runtime_metrics(), camera.runtime_info())
             _remember_events(events)
