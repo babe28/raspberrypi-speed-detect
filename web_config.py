@@ -55,6 +55,7 @@ class SuppressRecentEventsFilter(logging.Filter):
 
 
 logging.getLogger("werkzeug").addFilter(SuppressRecentEventsFilter())
+logging.getLogger("werkzeug").setLevel(logging.ERROR)
 
 
 def _camera_and_config() -> tuple[CameraManager, dict[str, Any]]:
@@ -290,7 +291,7 @@ def _list_csi_tuning_files() -> list[str]:
     if not CSI_TUNING_DIR.exists() or not CSI_TUNING_DIR.is_dir():
         return []
     files = sorted(
-        path.relative_to(Path.cwd()).as_posix()
+        path.as_posix()
         for path in CSI_TUNING_DIR.glob("*.json")
         if path.is_file()
     )

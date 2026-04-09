@@ -12,6 +12,12 @@ const globalBiasEl = document.getElementById("monitor-global-bias");
 const estimatedGoalEl = document.getElementById("monitor-estimated-goal");
 const goalDeltaEl = document.getElementById("monitor-goal-delta");
 const measurementPointEl = document.getElementById("monitor-measurement-point");
+const goalTimeInputEl = document.getElementById("monitor-goal-time");
+const courseDistanceInputEl = document.getElementById("monitor-course-distance");
+const measurementPointInputEl = document.getElementById("monitor-measurement-point-input");
+const globalBiasEnabledEl = document.getElementById("monitor-global-bias-enabled");
+const globalBiasInputEl = document.getElementById("monitor-global-bias-input");
+const saveGoalButtonEl = document.getElementById("monitor-save-goal");
 
 const state = {
   config: null,
@@ -42,13 +48,43 @@ function formatSeconds(seconds) {
   return minutes > 0 ? `${minutes}:${rest.toFixed(3).padStart(6, "0")}` : value.toFixed(3);
 }
 
+function parseGoalTimeInput(raw) {
+  const value = String(raw || "").trim();
+  if (!value) {
+    return 0;
+  }
+  if (value.includes(":")) {
+    const parts = value.split(":");
+    if (parts.length !== 2) {
+      throw new Error("ゴールタイムは 12.345 または 1:12.345 形式で入力してください。");
+    }
+    const minutes = Number(parts[0]);
+    const seconds = Number(parts[1]);
+    if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0) {
+      throw new Error("ゴールタイムの形式が正しくありません。");
+    }
+    return (minutes * 60) + seconds;
+  }
+  const seconds = Number(value);
+  if (!Number.isFinite(seconds) || seconds < 0) {
+    throw new Error("ゴールタイムは 0 以上で入力してください。");
+  }
+  return seconds;
+}
+
 function computeProjection(speedKmh) {
   const race = state.config?.measurement?.race_reference || {};
-  const goalTimeSeconds = Number(race.goal_time_seconds || 0);
-  const courseDistance = Number(race.course_distance_m || 0);
-  const measurementPoint = Number(race.measurement_point_m || 0);
-  const globalBias = Number(race.global_bias_kmh || 0);
-  const biasEnabled = Boolean(race.bias_enabled);
+  const goalTimeSeconds = (() => {
+    try {
+      return parseGoalTimeInput(goalTimeInputEl.value);
+    } catch {
+      return Number(race.goal_time_seconds || 0);
+    }
+  })();
+  const courseDistance = Number(courseDistanceInputEl.value || race.course_distance_m || 0);
+  const measurementPoint = Number(measurementPointInputEl.value || race.measurement_point_m || 0);
+  const globalBias = Number(globalBiasInputEl.value || race.global_bias_kmh || 0);
+  const biasEnabled = Boolean(globalBiasEnabledEl.checked);
   const speed = Number(speedKmh || 0);
   if (goalTimeSeconds <= 0 || courseDistance <= 0 || speed <= 0) {
     return null;
@@ -113,6 +149,47 @@ function renderLatestLog() {
 
 async function loadConfig() {
   state.config = await fetchJson("/api/config");
+  const race = state.config?.measurement?.race_reference || {};
+  goalTimeInputEl.value = formatSeconds(race.goal_time_seconds || 0) === "--"
+    ? ""
+    : formatSeconds(race.goal_time_seconds || 0);
+  courseDistanceInputEl.value = String(race.course_distance_m ?? 0);
+  measurementPointInputEl.value = String(race.measurement_point_m ?? 0);
+  globalBiasEnabledEl.checked = Boolean(race.bias_enabled);
+  globalBiasInputEl.value = String(race.global_bias_kmh ?? 0);
+  renderGoalReference();
+}
+
+async function saveGoalReference() {
+  const goalTimeSeconds = parseGoalTimeInput(goalTimeInputEl.value);
+  const courseDistance = Number(courseDistanceInputEl.value || 0);
+  const measurementPoint = Number(measurementPointInputEl.value || 0);
+  const globalBias = Number(globalBiasInputEl.value || 0);
+  if (courseDistance < 0 || measurementPoint < 0) {
+    throw new Error("距離は 0 以上で入力してください。");
+  }
+  if (courseDistance > 0 && measurementPoint > courseDistance) {
+    throw new Error("計測点はコース距離以下にしてください。");
+  }
+  if (!Number.isFinite(globalBias) || globalBias < -2 || globalBias > 3) {
+    throw new Error("グローバル補正は -2.0 から 3.0 で入力してください。");
+  }
+
+  state.config = await fetchJson("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      measurement: {
+        race_reference: {
+          goal_time_seconds: goalTimeSeconds,
+          course_distance_m: courseDistance,
+          measurement_point_m: measurementPoint,
+          bias_enabled: globalBiasEnabledEl.checked,
+          global_bias_kmh: globalBias,
+        },
+      },
+    }),
+  });
   renderGoalReference();
 }
 
@@ -133,6 +210,25 @@ async function refreshAll() {
 }
 
 refreshAll();
+saveGoalButtonEl.addEventListener("click", () => {
+  saveGoalReference()
+    .then(() => {
+      monitorStatusEl.textContent = "Saved";
+    })
+    .catch((error) => {
+      monitorStatusEl.textContent = error.message;
+    });
+});
+[
+  goalTimeInputEl,
+  courseDistanceInputEl,
+  measurementPointInputEl,
+  globalBiasEnabledEl,
+  globalBiasInputEl,
+].forEach((element) => {
+  element.addEventListener("input", renderGoalReference);
+  element.addEventListener("change", renderGoalReference);
+});
 window.setInterval(() => {
   loadRecentEvents()
     .then(() => {

@@ -56,6 +56,28 @@
             <p class="panel-label">Goal Reference</p>
             <h2>ゴールタイム基準補正</h2>
           </div>
+          <button id="monitor-save-goal" type="button">保存</button>
+        </div>
+        <div class="monitor-form-grid">
+          <label>ゴールタイム
+            <input id="monitor-goal-time" type="text" inputmode="decimal" placeholder="12.345 or 1:12.345">
+          </label>
+          <label>コース距離 m
+            <input id="monitor-course-distance" type="number" min="0" step="0.1">
+          </label>
+          <label>計測点 m
+            <input id="monitor-measurement-point-input" type="number" min="0" step="0.1">
+          </label>
+          <label class="switch-label" for="monitor-global-bias-enabled">
+            <span>グローバル補正</span>
+            <span class="switch">
+              <input id="monitor-global-bias-enabled" type="checkbox">
+              <span class="switch-slider"></span>
+            </span>
+          </label>
+          <label>グローバル補正 km/h
+            <input id="monitor-global-bias-input" type="number" min="-2" max="3" step="0.1">
+          </label>
         </div>
         <div class="monitor-stats-grid">
           <div class="stat-card">

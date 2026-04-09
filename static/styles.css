@@ -880,6 +880,17 @@ button.ghost {
   gap: 12px;
 }
 
+.monitor-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.monitor-form-grid .switch-label {
+  align-self: end;
+}
+
 .monitor-stats-grid .summary-value {
   font-size: clamp(1.2rem, 2vw, 2rem);
 }
@@ -906,6 +917,7 @@ button.ghost {
   }
 
   .monitor-latest-meta,
+  .monitor-form-grid,
   .monitor-stats-grid {
     grid-template-columns: 1fr;
   }
