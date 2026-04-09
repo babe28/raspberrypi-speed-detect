@@ -12,6 +12,9 @@ DEFAULT_CONFIG: dict[str, Any] = {
         "rtsp_url": "",
         "resolution": [1280, 720],
         "fps": 30,
+        "rotation": 0,
+        "flip_horizontal": False,
+        "flip_vertical": False,
         "usb_settings": {
             "auto_exposure": True,
             "exposure": None,
@@ -171,6 +174,9 @@ class ConfigManager:
         except (TypeError, ValueError):
             camera["device"] = 0
         camera["fps"] = int(camera.get("fps", 30))
+        camera["rotation"] = self._normalize_rotation(camera.get("rotation", 0))
+        camera["flip_horizontal"] = bool(camera.get("flip_horizontal", False))
+        camera["flip_vertical"] = bool(camera.get("flip_vertical", False))
         camera["type"] = str(camera.get("type", "usb")).lower()
         if camera["type"] not in {"usb", "csi", "rtsp"}:
             camera["type"] = "usb"
@@ -339,6 +345,8 @@ class ConfigManager:
             raise ValueError("Camera resolution values must be positive.")
         if camera["fps"] <= 0:
             raise ValueError("FPS must be at least 1.")
+        if camera["rotation"] not in {0, 90, 180, 270}:
+            raise ValueError("camera.rotation must be 0, 90, 180, or 270.")
         if camera["type"] == "usb" and camera["device"] < 0:
             raise ValueError("USB camera device index must be 0 or greater.")
         if camera["type"] == "rtsp" and not camera["rtsp_url"].strip():
@@ -467,3 +475,10 @@ class ConfigManager:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    def _normalize_rotation(self, value: Any) -> int:
+        try:
+            rotation = int(value)
+        except (TypeError, ValueError):
+            return 0
+        return rotation if rotation in {0, 90, 180, 270} else 0

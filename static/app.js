@@ -501,6 +501,9 @@ function fillForm(config) {
   setValue("camera-width", camera.resolution[0]);
   setValue("camera-height", camera.resolution[1]);
   setValue("camera-fps", camera.fps);
+  setValue("camera-rotation", camera.rotation ?? 0);
+  document.getElementById("camera-flip-horizontal").checked = Boolean(camera.flip_horizontal);
+  document.getElementById("camera-flip-vertical").checked = Boolean(camera.flip_vertical);
 
   document.getElementById("usb-auto-exposure").checked = Boolean(usbSettings.auto_exposure);
   document.getElementById("usb-autofocus").checked = Boolean(usbSettings.autofocus);
@@ -780,6 +783,9 @@ function buildConfigPayload() {
       rtsp_url: getValue("rtsp-url").trim(),
       resolution: [Number(getValue("camera-width")), Number(getValue("camera-height"))],
       fps: Number(getValue("camera-fps")),
+      rotation: Number(getValue("camera-rotation")),
+      flip_horizontal: getChecked("camera-flip-horizontal"),
+      flip_vertical: getChecked("camera-flip-vertical"),
       usb_settings: buildUsbSettingsPayload(),
       csi_settings: buildCsiSettingsPayload(),
     },
@@ -964,6 +970,7 @@ function validateBeforeSave() {
   const width = Number(getValue("camera-width"));
   const height = Number(getValue("camera-height"));
   const fps = Number(getValue("camera-fps"));
+  const rotation = Number(getValue("camera-rotation"));
   const device = Number(getValue("camera-device"));
   const rtspUrl = getValue("rtsp-url").trim();
   const csiTuningFile = getValue("csi-tuning-file").trim();
@@ -991,6 +998,9 @@ function validateBeforeSave() {
   }
   if (fps <= 0) {
     throw new Error("FPS は 1 以上で入力してください。");
+  }
+  if (![0, 90, 180, 270].includes(rotation)) {
+    throw new Error("camera rotation must be 0 / 90 / 180 / 270");
   }
   if (sourceType === "usb" && (!Number.isInteger(device) || device < 0)) {
     throw new Error("USB カメラのデバイス番号は 0 以上の整数で入力してください。");

@@ -25,6 +25,9 @@ class CameraManager:
         self.rtsp_url = str(camera_config.get("rtsp_url", ""))
         self.width, self.height = camera_config["resolution"]
         self.fps = camera_config["fps"]
+        self.rotation = int(camera_config.get("rotation", 0))
+        self.flip_horizontal = bool(camera_config.get("flip_horizontal", False))
+        self.flip_vertical = bool(camera_config.get("flip_vertical", False))
         self.usb_settings = camera_config.get("usb_settings", {})
         self.csi_settings = camera_config.get("csi_settings", {})
         self.csi_tuning_file = str(self.csi_settings.get("tuning_file", "")).strip()
@@ -124,14 +127,18 @@ class CameraManager:
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
             elif frame.ndim == 3 and frame.shape[2] == 3:
                 frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-            return True, self._downscale(frame)
+            frame = self._downscale(frame)
+            frame = self._apply_orientation(frame)
+            return True, frame
 
         if self.cap is None:
             return False, None
         ok, frame = self.cap.read()
         if not ok or frame is None:
             return False, None
-        return True, self._downscale(frame)
+        frame = self._downscale(frame)
+        frame = self._apply_orientation(frame)
+        return True, frame
 
     def stop(self) -> None:
         if self.cap is not None:
@@ -152,6 +159,23 @@ class CameraManager:
                 fy=self.downscale_factor,
                 interpolation=cv2.INTER_AREA,
             )
+        return frame
+
+    def _apply_orientation(self, frame: np.ndarray) -> np.ndarray:
+        if self.rotation == 90:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_CLOCKWISE)
+        elif self.rotation == 180:
+            frame = cv2.rotate(frame, cv2.ROTATE_180)
+        elif self.rotation == 270:
+            frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
+
+        if self.flip_horizontal and self.flip_vertical:
+            frame = cv2.flip(frame, -1)
+        elif self.flip_horizontal:
+            frame = cv2.flip(frame, 1)
+        elif self.flip_vertical:
+            frame = cv2.flip(frame, 0)
+
         return frame
 
     def _start_csi_camera(self) -> None:
