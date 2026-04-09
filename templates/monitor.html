@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Soapbox Speed Camera Monitor</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body class="monitor-page">
+  <main class="monitor-layout">
+    <section class="monitor-stream-panel panel">
+      <div class="monitor-panel-header">
+        <div>
+          <p class="eyebrow">Soapbox Speed Camera</p>
+          <h1>Race Monitor</h1>
+        </div>
+        <p id="monitor-status" class="monitor-status">Connecting...</p>
+      </div>
+      <img id="monitor-stream" class="monitor-stream" src="/stream" alt="Live stream">
+    </section>
+
+    <aside class="monitor-sidebar">
+      <article class="panel monitor-card">
+        <div class="monitor-card-header">
+          <div>
+            <p class="panel-label">Latest Log</p>
+            <h2>最新ログ</h2>
+          </div>
+        </div>
+        <div id="monitor-latest-empty" class="monitor-empty">まだ検知ログはありません。</div>
+        <div id="monitor-latest-card" class="monitor-latest-card" hidden>
+          <div class="monitor-latest-speed-row">
+            <p id="monitor-latest-speed" class="monitor-latest-speed">--</p>
+            <p id="monitor-latest-time" class="monitor-latest-time">--</p>
+          </div>
+          <div class="monitor-latest-meta">
+            <div>
+              <p class="summary-label">ID</p>
+              <p id="monitor-latest-id" class="summary-value">--</p>
+            </div>
+            <div>
+              <p class="summary-label">Mode</p>
+              <p id="monitor-latest-mode" class="summary-value">--</p>
+            </div>
+            <div>
+              <p class="summary-label">Position</p>
+              <p id="monitor-latest-position" class="summary-value">--</p>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="panel monitor-card">
+        <div class="monitor-card-header">
+          <div>
+            <p class="panel-label">Goal Reference</p>
+            <h2>ゴールタイム基準補正</h2>
+          </div>
+        </div>
+        <div class="monitor-stats-grid">
+          <div class="stat-card">
+            <p class="summary-label">基準平均速度</p>
+            <p id="monitor-official-average" class="summary-value">--</p>
+          </div>
+          <div class="stat-card">
+            <p class="summary-label">残り距離</p>
+            <p id="monitor-remaining-distance" class="summary-value">--</p>
+          </div>
+          <div class="stat-card">
+            <p class="summary-label">グローバル補正</p>
+            <p id="monitor-global-bias" class="summary-value">--</p>
+          </div>
+          <div class="stat-card">
+            <p class="summary-label">推定ゴール</p>
+            <p id="monitor-estimated-goal" class="summary-value">--</p>
+          </div>
+          <div class="stat-card">
+            <p class="summary-label">差分</p>
+            <p id="monitor-goal-delta" class="summary-value">--</p>
+          </div>
+          <div class="stat-card">
+            <p class="summary-label">計測点</p>
+            <p id="monitor-measurement-point" class="summary-value">--</p>
+          </div>
+        </div>
+      </article>
+    </aside>
+  </main>
+
+  <script src="{{ url_for('static', filename='monitor.js') }}"></script>
+</body>
+</html>

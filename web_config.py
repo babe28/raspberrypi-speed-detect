@@ -453,6 +453,12 @@ def index() -> str:
     return render_template("index.html")
 
 
+@app.get("/monitor")
+def monitor() -> str:
+    ensure_processor_started()
+    return render_template("monitor.html")
+
+
 @app.get("/api/config")
 def get_config() -> Response:
     ensure_processor_started()
